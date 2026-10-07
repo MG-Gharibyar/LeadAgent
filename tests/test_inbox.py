@@ -22,8 +22,7 @@ def test_classification_rules():
         == "REQUESTED_INFORMATION"
     )
     assert (
-        classify_text("Delivery Status Notification", "", "mailer-daemon@example.de")[0]
-        == "BOUNCE"
+        classify_text("Delivery Status Notification", "", "mailer-daemon@example.de")[0] == "BOUNCE"
     )
 
 

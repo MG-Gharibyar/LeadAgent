@@ -38,9 +38,7 @@ def parser() -> argparse.ArgumentParser:
         "discover", help="Discover, research, rank, draft and generate daily report"
     )
     discovery.add_argument("--sector", choices=list(SECTORS))
-    discovery.add_argument(
-        "--location", help="City/region focus; for exact radii prefer --area"
-    )
+    discovery.add_argument("--location", help="City/region focus; for exact radii prefer --area")
     discovery.add_argument(
         "--area",
         action="append",

@@ -56,8 +56,7 @@ def test_outside_and_review(tmp_path):
     index = make_index(tmp_path)
     area = resolve_areas(["Karlsruhe:5"], index)
     assert (
-        apply_area_match(Lead("X", "https://x.example", city="Stuttgart"), area, index)
-        == "OUTSIDE"
+        apply_area_match(Lead("X", "https://x.example", city="Stuttgart"), area, index) == "OUTSIDE"
     )
     unknown = Lead("Y", "https://y.example", city="Nowhere")
     assert apply_area_match(unknown, area, index) == "REVIEW"

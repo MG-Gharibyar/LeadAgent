@@ -96,7 +96,12 @@ def update_geo_database(path: str, url: str = GEONAMES_DE_URL) -> int:
                 name = fields[1].strip()
                 aliases = {name, fields[2].strip()}
                 aliases.update(a.strip() for a in fields[3].split(",") if a.strip())
-                record = {"name": name, "latitude": latitude, "longitude": longitude, "population": population}
+                record = {
+                    "name": name,
+                    "latitude": latitude,
+                    "longitude": longitude,
+                    "population": population,
+                }
                 for alias in aliases:
                     key = _key(alias)
                     if not key:
@@ -107,7 +112,14 @@ def update_geo_database(path: str, url: str = GEONAMES_DE_URL) -> int:
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     tmp = target.with_suffix(target.suffix + ".tmp")
-    tmp.write_text(json.dumps({"source": url, "attribution": GEONAMES_ATTRIBUTION, "places": places}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    tmp.write_text(
+        json.dumps(
+            {"source": url, "attribution": GEONAMES_ATTRIBUTION, "places": places},
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ),
+        encoding="utf-8",
+    )
     tmp.replace(target)
     return len(places)
 
@@ -142,7 +154,10 @@ def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     p1, p2 = math.radians(lat1), math.radians(lat2)
     dphi = math.radians(lat2 - lat1)
     dlambda = math.radians(lon2 - lon1)
-    a = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dlambda / 2) ** 2
+    a = (
+        math.sin(dphi / 2) ** 2
+        + math.cos(p1) * math.cos(p2) * math.sin(dlambda / 2) ** 2
+    )
     return 2 * radius * math.asin(math.sqrt(a))
 
 
@@ -157,8 +172,18 @@ def apply_area_match(lead: Lead, areas: list[Area], index: GeoIndex) -> str:
     lead.latitude, lead.longitude = place.latitude, place.longitude
     lead.location_resolution_source = GEONAMES_ATTRIBUTION
     lead.country = "Germany"
-    lead.evidence = [e for e in lead.evidence if not (e.kind == "risk" and e.value == "unverified_german_location")]
-    distances = [(haversine_km(place.latitude, place.longitude, area.latitude, area.longitude), area) for area in areas]
+    lead.evidence = [
+        e
+        for e in lead.evidence
+        if not (e.kind == "risk" and e.value == "unverified_german_location")
+    ]
+    distances = [
+        (
+            haversine_km(place.latitude, place.longitude, area.latitude, area.longitude),
+            area,
+        )
+        for area in areas
+    ]
     distance, _ = min(distances, key=lambda item: item[0])
     lead.distance_km = round(distance, 2)
     matching = [item for item in distances if item[0] <= item[1].radius_km]

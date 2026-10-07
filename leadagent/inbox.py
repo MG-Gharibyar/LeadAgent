@@ -23,9 +23,10 @@ def message_text(message: Message) -> str:
     if message.is_multipart():
         parts = []
         for part in message.walk():
-            if part.get_content_type() == "text/plain" and "attachment" not in str(
-                part.get("Content-Disposition", "")
-            ).lower():
+            if (
+                part.get_content_type() == "text/plain"
+                and "attachment" not in str(part.get("Content-Disposition", "")).lower()
+            ):
                 try:
                     parts.append(part.get_content())
                 except (LookupError, UnicodeError):
@@ -44,19 +45,47 @@ def classify_text(subject: str, body: str, sender: str) -> tuple[str, float, str
     if (
         "mailer-daemon" in sender_l
         or "postmaster" in sender_l
-        or re.search(r"\b(undeliverable|unzustellbar|delivery status notification|mail delivery failed)\b", text)
+        or re.search(
+            r"\b(undeliverable|unzustellbar|delivery status notification|mail delivery failed)\b",
+            text,
+        )
     ):
         return "BOUNCE", 0.99, "Delivery failure detected", ""
-    if re.search(r"\b(abwesenheitsnotiz|automatische antwort|out of office|urlaub|bin bis .* nicht erreichbar)\b", text):
+    if re.search(
+        r"\b(abwesenheitsnotiz|automatische antwort|out of office|urlaub|bin bis .* nicht erreichbar)\b",
+        text,
+    ):
         return "OUT_OF_OFFICE", 0.95, "Automatic absence reply", ""
-    if re.search(r"\b(keine weiteren (?:e-?mails|nachrichten)|nicht mehr kontaktieren|aus dem verteiler|abbestellen|unsubscribe|widerspreche)\b", text):
+    if re.search(
+        r"\b(keine weiteren (?:e-?mails|nachrichten)|nicht mehr kontaktieren|aus dem verteiler|abbestellen|unsubscribe|widerspreche)\b",
+        text,
+    ):
         return "OPT_OUT", 0.99, "Recipient requests no further messages", "DO_NOT_CONTACT"
-    if re.search(r"\b(kein interesse|nicht interessiert|kommt für uns nicht in frage|sehen wir keinen bedarf)\b", text):
+    if re.search(
+        r"\b(kein interesse|nicht interessiert|kommt für uns nicht in frage|sehen wir keinen bedarf)\b",
+        text,
+    ):
         return "NOT_INTERESTED", 0.97, "Recipient states no interest", "REJECTED"
-    if re.search(r"\b(termin|telefonat|gespräch|gespraech|call|meeting|nächste woche|naechste woche)\b", text):
-        return "MEETING_REQUEST", 0.90, "Reply appears to request or discuss a meeting", "INTERESTED"
-    if re.search(r"\b(weitere informationen|mehr informationen|details|angebot|kosten|umfang|ablauf|unterlagen)\b", text):
-        return "REQUESTED_INFORMATION", 0.88, "Reply requests or discusses additional information", "INTERESTED"
+    if re.search(
+        r"\b(termin|telefonat|gespräch|gespraech|call|meeting|nächste woche|naechste woche)\b",
+        text,
+    ):
+        return (
+            "MEETING_REQUEST",
+            0.90,
+            "Reply appears to request or discuss a meeting",
+            "INTERESTED",
+        )
+    if re.search(
+        r"\b(weitere informationen|mehr informationen|details|angebot|kosten|umfang|ablauf|unterlagen)\b",
+        text,
+    ):
+        return (
+            "REQUESTED_INFORMATION",
+            0.88,
+            "Reply requests or discusses additional information",
+            "INTERESTED",
+        )
     return "REVIEW_REQUIRED", 0.50, "Reply received; manual review required", "RESPONDED"
 
 
@@ -192,7 +221,11 @@ def sync(db: Database, limit: int = 100) -> int:
             if status != "OK":
                 continue
             raw = next(
-                (item[1] for item in fetched or [] if isinstance(item, tuple) and isinstance(item[1], bytes)),
+                (
+                    item[1]
+                    for item in fetched or []
+                    if isinstance(item, tuple) and isinstance(item[1], bytes)
+                ),
                 None,
             )
             if raw is not None and ingest_message(db, uid.decode("ascii"), raw):
@@ -239,9 +272,7 @@ def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
             print(f"{row['classification']}: {row['n']}")
         return 0
     if action == "review":
-        rows = db.connection.execute(
-            "SELECT * FROM inbox_events WHERE reviewed_at='' ORDER BY id"
-        )
+        rows = db.connection.execute("SELECT * FROM inbox_events WHERE reviewed_at='' ORDER BY id")
         for row in rows:
             company = ""
             if row["lead_id"]:
