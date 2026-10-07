@@ -65,7 +65,7 @@ def prepare_draft(lead: Lead, kind: str = "initial") -> Lead:
     observations = [
         e
         for e in lead.evidence
-        if e.kind in {"service_need", "intent", "technology", "digital", "operations"}
+        if e.kind in {"service_need", "intent", "technology", "digital", "operations", "segment"}
     ]
 
     def relevance(e: Evidence) -> int:
@@ -77,6 +77,8 @@ def prepare_draft(lead: Lead, kind: str = "initial") -> Lead:
             return 50
         if lead.recommended_dsc_service == "Microsoft 365 Security" and e.value == "microsoft_365":
             return 50
+        if e.kind == "segment":
+            return 5
         return 25
 
     observations.sort(key=lambda e: (relevance(e), instant(e.retrieved_at)), reverse=True)

@@ -96,9 +96,24 @@ class OpenStreetMapDirectory:
             else [f for values in OSM_FILTERS.values() for f in values]
         )
         selections = "".join(f"nwr{f}{scope};" for f in filters)
-        query = f"[out:json][timeout:10][maxsize:16777216];{prefix}({selections});out tags 500;"
-        url = "https://overpass.private.coffee/api/interpreter?" + urlencode({"data": query})
-        page = self.client.fetch(url)
+        query = f"[out:json][timeout:20][maxsize:16777216];{prefix}({selections});out tags 500;"
+        page = None
+        last_error: OSError | None = None
+        for endpoint in (
+            "https://overpass.private.coffee/api/interpreter",
+            "https://overpass-api.de/api/interpreter",
+        ):
+            url = endpoint + "?" + urlencode({"data": query})
+            try:
+                page = self.client.fetch(url)
+                break
+            except OSError as exc:
+                # Availability failure only. AccessDenied is a ValueError and is not bypassed.
+                last_error = exc
+        if page is None:
+            if last_error:
+                raise last_error
+            raise ValueError("No Overpass endpoint available")
         data = json.loads(page.text)
         if data.get("remark"):
             raise ValueError("Incomplete directory response")

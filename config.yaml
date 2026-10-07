@@ -2,7 +2,7 @@ country: Germany
 database: data/leadagent.sqlite3
 report_directory: reports
 daily_new_lead_limit: 20
-minimum_score: 70
+minimum_score: 28
 followup_delay_days: 10
 maximum_followups: 1
 fit_weight: 0.7

@@ -145,10 +145,10 @@ def _contact(lead: Lead, page: Page, doc: Document, region: str = "") -> None:
     for link in doc.links:
         if link.startswith("mailto:"):
             email = unquote(link[7:].split("?", 1)[0]).strip()
-            # Deliberately collect role inboxes only; no unnecessary personal addresses.
+            # Collect common public business/role inboxes only; do not derive personal addresses.
             if (
                 re.fullmatch(
-                    r"(info|kontakt|office|kanzlei|praxis|service|hello|partner)@[a-zA-Z0-9.-]+",
+                    r"(info|kontakt|contact|office|kanzlei|praxis|service|hello|partner|post|mail|sekretariat|team|empfang|zentrale|buero|verwaltung|support|anwaelte|rechtsanwaelte|rezeption|termin|beratung|karlsruhe)@[a-zA-Z0-9.-]+",
                     email,
                     re.I,
                 )
@@ -164,7 +164,7 @@ def _contact(lead: Lead, page: Page, doc: Document, region: str = "") -> None:
     if not lead.public_email:
         # Only explicitly printed role inboxes; do not derive addresses from names.
         role_email = re.search(
-            r"\b(?:info|kontakt|office|kanzlei|praxis|service|hello|partner)@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b",
+            r"\b(?:info|kontakt|contact|office|kanzlei|praxis|service|hello|partner|post|mail|sekretariat|team|empfang|zentrale|buero|verwaltung|support|anwaelte|rechtsanwaelte|rezeption|termin|beratung|karlsruhe)@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b",
             text,
             re.I,
         )
