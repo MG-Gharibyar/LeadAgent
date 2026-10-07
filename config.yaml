@@ -1,0 +1,56 @@
+country: Germany
+database: data/leadagent.sqlite3
+report_directory: reports
+daily_new_lead_limit: 20
+minimum_score: 70
+followup_delay_days: 10
+maximum_followups: 1
+fit_weight: 0.7
+segments:
+  medical_practice:
+    target: 6
+  tax_advisory:
+    target: 5
+  law_firm:
+    target: 5
+  it_service_provider:
+    target: 4
+discovery:
+  provider: seeds
+  seeds_file: seeds.local.json
+  maximum_candidates: 80
+  maximum_pages_per_company: 5
+  request_interval_seconds: 2
+  timeout_seconds: 15
+  max_response_bytes: 1000000
+  user_agent: DSCLeadAgent/0.1 (+https://digitalskills-campus.de; kontakt@digitalskills-campus.de)
+  # Explicitly permitted directory/search sources only; robots and access rules still apply.
+  allowed_hosts: []
+  queries:
+    - 'Arztpraxis Gemeinschaftspraxis digitales Patientenportal Deutschland'
+    - 'Steuerberatung digitale Zusammenarbeit Microsoft 365 Deutschland'
+    - 'Rechtsanwaltskanzlei digitales Mandantenportal Deutschland'
+    - 'IT Systemhaus Microsoft 365 Managed Services Partner Deutschland'
+mail:
+  automatic_sending_enabled: false
+  allowed_permission_states: [CONSENTED, REQUESTED_INFORMATION]
+  minimum_interval_seconds: 60
+  approval_valid_days: 7
+  evidence_max_age_days: 30
+fit_points:
+  segment: 25
+  size: 15
+  technology: 20
+  operations: 15
+  digital: 10
+  compatibility: 15
+intent_points:
+  explicit_request: 45
+  partner_opportunity: 35
+  security_hiring: 30
+  transformation: 25
+  external_it: 20
+  expansion: 15
+  multiple_locations: 10
+  security_concern: 15
+  partner_fit: 20

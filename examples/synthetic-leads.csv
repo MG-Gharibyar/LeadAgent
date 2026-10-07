@@ -1,0 +1,61 @@
+rank,id,company,segment,city,website,final_score,fit_score,intent_score,service,contact_route,permission,subject,email,source_urls,previous_contacts,action
+1,4,Synthetisches IT-Systemhaus Kundenkern,it_service_provider,Stuttgart,https://systemhaus-demo.example/,86,100,55,Partner Security Assessment,kontakt@systemhaus-demo.example,UNKNOWN,Partner Security Assessment für Synthetisches IT-Systemhaus Kundenkern,"Guten Tag,
+
+auf Ihrer Website beschreiben Sie: „Wir suchen technische Partner für ergänzende Kundenprojekte“.
+
+Für ein Systemhaus kann eine ergänzende Assessment-Kapazität für Kundenprojekte interessant sein. Digital Skills Campus bietet hierzu Partner Security Assessment an. Das Ergebnis ist ein klar abgegrenztes technisches Assessment mit priorisierten Maßnahmen und einem Ergebnisbericht für Ihre Kunden.
+
+Wenn das zu Ihrer aktuellen Planung passt, sende ich Ihnen gern eine kurze Übersicht zum Prüfungsumfang.
+
+Freundliche Grüße
+Hasib Gharibyar
+Digital Skills Campus
+kontakt@digitalskills-campus.de
+digitalskills-campus.de
+
+Falls Sie keine weitere Nachricht wünschen, genügt eine kurze Antwort.",https://systemhaus-demo.example/,0,REVIEW
+2,3,Synthetische Rechtsanwaltskanzlei Briefwerk,law_firm,Köln,https://kanzlei-demo.example/,85,100,50,Windows Security Assessment,kontakt@kanzlei-demo.example,UNKNOWN,Windows Security Assessment für Synthetische Rechtsanwaltskanzlei Briefwerk,"Guten Tag,
+
+auf Ihrer Website beschreiben Sie: „Wir suchen einen IT-Administrator für unsere Kanzlei“.
+
+Daraus ergibt sich ein möglicher Ansatzpunkt für eine kompakte technische Sicherheitsprüfung. Digital Skills Campus bietet hierzu Windows Security Assessment an. Das Ergebnis ist eine priorisierte technische Bewertung der Windows- und Zugriffssicherheit mit konkreten Maßnahmen und einem schriftlichen Ergebnisbericht.
+
+Wenn das zu Ihrer aktuellen Planung passt, sende ich Ihnen gern eine kurze Übersicht zum Prüfungsumfang.
+
+Freundliche Grüße
+Hasib Gharibyar
+Digital Skills Campus
+kontakt@digitalskills-campus.de
+digitalskills-campus.de
+
+Falls Sie keine weitere Nachricht wünschen, genügt eine kurze Antwort.",https://kanzlei-demo.example/,0,REVIEW
+3,2,Synthetische Steuerberatung Zahlenklar,tax_advisory,Hamburg,https://steuer-demo.example/,84,100,45,Microsoft 365 Security,kontakt@steuer-demo.example,UNKNOWN,Microsoft 365 Security für Synthetische Steuerberatung Zahlenklar,"Guten Tag,
+
+auf Ihrer Website beschreiben Sie: „Wir nutzen Microsoft 365 zur digitalen Zusammenarbeit“.
+
+Daraus ergibt sich ein möglicher Ansatzpunkt für eine kompakte technische Sicherheitsprüfung. Digital Skills Campus bietet hierzu Microsoft 365 Security an. Das Ergebnis ist eine priorisierte Bewertung der Identitäts-, Zugriffs- und Mandanteneinstellungen mit konkreten Maßnahmen und einem schriftlichen Ergebnisbericht.
+
+Wenn das zu Ihrer aktuellen Planung passt, sende ich Ihnen gern eine kurze Übersicht zum Prüfungsumfang.
+
+Freundliche Grüße
+Hasib Gharibyar
+Digital Skills Campus
+kontakt@digitalskills-campus.de
+digitalskills-campus.de
+
+Falls Sie keine weitere Nachricht wünschen, genügt eine kurze Antwort.",https://steuer-demo.example/,0,REVIEW
+4,1,Synthetische Gemeinschaftspraxis Morgenrot,medical_practice,Berlin,https://medizin-demo.example/,79,100,30,Backup & Recovery Review,kontakt@medizin-demo.example,UNKNOWN,Backup & Recovery Review für Synthetische Gemeinschaftspraxis Morgenrot,"Guten Tag,
+
+auf Ihrer Website beschreiben Sie: „Unsere Datensicherung umfasst tägliche Backups“.
+
+Daraus ergibt sich ein möglicher Ansatzpunkt für eine kompakte technische Sicherheitsprüfung. Digital Skills Campus bietet hierzu Backup & Recovery Review an. Das Ergebnis ist eine Bewertung der Sicherungs- und Wiederherstellungsabläufe mit priorisierten Verbesserungen und einem schriftlichen Ergebnisbericht.
+
+Wenn das zu Ihrer aktuellen Planung passt, sende ich Ihnen gern eine kurze Übersicht zum Prüfungsumfang.
+
+Freundliche Grüße
+Hasib Gharibyar
+Digital Skills Campus
+kontakt@digitalskills-campus.de
+digitalskills-campus.de
+
+Falls Sie keine weitere Nachricht wünschen, genügt eine kurze Antwort.",https://medizin-demo.example/,0,REVIEW
