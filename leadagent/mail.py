@@ -184,23 +184,65 @@ class Mailer:
         self.sent_copy_transport = sent_copy_transport
 
     def send(self, lead_id: int, live: bool = False) -> DeliveryResult:
+        return self._send(lead_id, live)
+
+    def send_customer(
+        self,
+        lead_id: int,
+        actor: str,
+        expected: tuple[str | None, str] | None = None,
+        now: datetime | None = None,
+    ) -> DeliveryResult:
+        if not actor.strip():
+            raise ValueError("Customer sending requires a named operator")
+        return self._send(lead_id, True, actor, expected, now)
+
+    def _send(
+        self,
+        lead_id: int,
+        live: bool,
+        customer_actor: str = "",
+        expected: tuple[str | None, str] | None = None,
+        now: datetime | None = None,
+    ) -> DeliveryResult:
+        from . import customers
+
+        customer_flow = bool(customer_actor)
+
+        def clock() -> datetime:
+            return now or datetime.now(UTC)
+
         settings = None
         if live and self.transport is None:
             # Validate credentials before consuming the one-shot reservation.
             settings = SMTPSettings.from_environment()
         with self.db.transaction():
             lead = self.db.get(lead_id)
-            if lead.suppressed or lead.outreach_status in STOP_STATUSES:
-                raise ValueError("Suppressed or responded lead cannot be sent, including dry-run")
-            if lead.draft_kind == "initial" and lead.contact_count:
-                raise ValueError("Initial outreach already attempted")
-            if lead.draft_kind == "followup" and not followup_due(lead, self.config):
-                raise ValueError("Follow-up is not due or already exhausted")
+            if customer_flow:
+                reasons = customers.blockers(self.db, lead, clock())
+                if reasons:
+                    raise ValueError("Customer sending blocked: " + "; ".join(reasons))
+                customers.record_due(self.db, lead)
+                lead = customers.message(lead, self.config)
+                lead.approved_by = customer_actor
+                if expected and expected != (lead.next_customer_checkin_at, draft_hash(lead)):
+                    raise ValueError(
+                        "Displayed customer message or period changed; confirm a fresh batch"
+                    )
+            else:
+                if lead.suppressed or lead.outreach_status in STOP_STATUSES:
+                    raise ValueError(
+                        "Suppressed or responded lead cannot be sent, including dry-run"
+                    )
+                if lead.draft_kind == "initial" and lead.contact_count:
+                    raise ValueError("Initial outreach already attempted")
+                if lead.draft_kind == "followup" and not followup_due(lead, self.config):
+                    raise ValueError("Follow-up is not due or already exhausted")
             if live and self.transport is None and lead.normalized_domain.endswith(".example"):
                 raise ValueError("Synthetic fixture domains cannot receive real SMTP mail")
             message = build_message(lead, settings)
             wire_message = message.as_bytes(policy=policy.SMTP)
-            reasons = blockers(lead, self.config)
+            reasons = [] if customer_flow else blockers(lead, self.config)
             if live:
                 if not self.config.mail.automatic_sending_enabled:
                     reasons.append("Live sending disabled in config")
@@ -209,11 +251,11 @@ class Mailer:
                 last = self.db.connection.execute(
                     "SELECT created_at FROM deliveries WHERE mode='LIVE' ORDER BY id DESC LIMIT 1"
                 ).fetchone()
-                if last and datetime.now(UTC) - instant(last[0]) < timedelta(
+                if last and clock() - instant(last[0]) < timedelta(
                     seconds=self.config.mail.minimum_interval_seconds
                 ):
                     raise ValueError("Global sending rate limit; retry after configured interval")
-            at = utcnow()
+            at = clock().isoformat()
             cursor = self.db.connection.execute(
                 "INSERT INTO deliveries(lead_id,kind,mode,state,created_at,updated_at,draft_hash,"
                 "permission_status,permission_basis,approved_by,recipient,message_id,subject,text_body,html_body) "
@@ -241,7 +283,12 @@ class Mailer:
             self.db.connection.execute(
                 "UPDATE deliveries SET rfc822=? WHERE id=?", (wire_message, delivery_id)
             )
-            if live:
+            if customer_flow:
+                self.db.connection.execute(
+                    "UPDATE deliveries SET customer_period=?,permission_status='',permission_basis='' WHERE id=?",
+                    (lead.next_customer_checkin_at, delivery_id),
+                )
+            if live and not customer_flow:
                 # Reserve before network I/O. Crashes and uncertain SMTP failures never cause retry.
                 record_contact(lead, self.config, at)
                 self.db.save(lead)
@@ -258,9 +305,22 @@ class Mailer:
             # the final suppression check and transport. Reservation already survives a crash.
             with self.db.transaction():
                 current = self.db.get(lead_id)
-                if current.suppressed or current.outreach_status in STOP_STATUSES:
+                if customer_flow:
+                    # The current reservation is ours; recheck explicit suppression and
+                    # period without treating that reservation as a duplicate.
+                    check = customers.blockers(self.db, current, clock())
+                    check = [
+                        r for r in check if not r.startswith("Customer period already reserved")
+                    ]
+                    if (
+                        check
+                        or current.next_customer_checkin_at != lead.next_customer_checkin_at
+                        or draft_hash(customers.message(current, self.config)) != draft_hash(lead)
+                    ):
+                        raise ValueError("Customer suppression or period changed after reservation")
+                elif current.suppressed or current.outreach_status in STOP_STATUSES:
                     raise ValueError("Suppression recorded after reservation; transport cancelled")
-                if (
+                if not customer_flow and (
                     current.email_permission_status != lead.email_permission_status
                     or current.email_permission_basis != lead.email_permission_basis
                 ):
@@ -272,8 +332,18 @@ class Mailer:
                     smtp_transport(settings, message)
                 self.db.connection.execute(
                     "UPDATE deliveries SET state='ACCEPTED',sent_copy_status='PENDING',updated_at=? WHERE id=?",
-                    (utcnow(), delivery_id),
+                    (clock().isoformat(), delivery_id),
                 )
+                if customer_flow:
+                    at = clock().isoformat()
+                    current.last_customer_checkin_at = at
+                    current.next_customer_checkin_at = (
+                        instant(at) + timedelta(days=self.config.customer_checkin_interval_days)
+                    ).isoformat()
+                    self.db.save(current)
+                    self.db.audit(
+                        lead_id, "CUSTOMER_CHECKIN_SENT", customer_actor, str(delivery_id)
+                    )
                 if lead.draft_kind == "initial":
                     current.initial_delivery_confirmed = True
                     self.db.save(current)
@@ -287,9 +357,12 @@ class Mailer:
                     (utcnow(), type(exc).__name__, delivery_id),
                 )
                 current = self.db.get(lead_id)
-                current.next_contact_allowed_at = (
-                    ""  # No follow-up after failed/uncertain delivery.
-                )
+                if customer_flow:
+                    self.db.audit(
+                        lead_id, "CUSTOMER_CHECKIN_FAILED", customer_actor, str(delivery_id)
+                    )
+                else:
+                    current.next_contact_allowed_at = ""  # No follow-up after uncertain delivery.
                 self.db.save(current)
                 self.db.audit(lead_id, "DELIVERY_FAILED_OR_UNCERTAIN", "system", type(exc).__name__)
             return DeliveryResult(delivery_id, "FAILED_OR_UNCERTAIN", [type(exc).__name__])

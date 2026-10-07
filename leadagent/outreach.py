@@ -189,7 +189,14 @@ def set_permission(db: Database, lead_id: int, state: str, basis: str, actor: st
         db.audit(lead_id, "PERMISSION", actor, f"{state}: {basis}")
 
 
-def set_status(db: Database, lead_id: int, status: Status, actor: str, reason: str = "") -> None:
+def set_status(
+    db: Database,
+    lead_id: int,
+    status: Status,
+    actor: str,
+    reason: str = "",
+    config: Config | None = None,
+) -> None:
     if status not in {
         Status.REJECTED,
         Status.DO_NOT_CONTACT,
@@ -202,6 +209,15 @@ def set_status(db: Database, lead_id: int, status: Status, actor: str, reason: s
         raise ValueError("Status changes require a named operator")
     with db.transaction():
         lead = db.get(lead_id)
+        if (
+            lead.customer or lead.outreach_status == Status.CUSTOMER.value
+        ) and status == Status.DO_NOT_CONTACT:
+            lead.customer_opt_out = True
+            lead.do_not_contact = True
+            lead.approved_draft_hash = ""
+            db.save(lead)
+            db.audit(lead_id, "CUSTOMER_OPT_OUT", actor, reason)
+            return
         if lead.suppressed:
             raise ValueError("Suppression is permanent")
         lead.outreach_status = status.value
@@ -212,7 +228,14 @@ def set_status(db: Database, lead_id: int, status: Status, actor: str, reason: s
         if status == Status.DO_NOT_CONTACT:
             lead.email_permission_status = Permission.PROHIBITED.value
         db.save(lead)
-        db.audit(lead_id, status.value, actor, reason)
+        if status == Status.CUSTOMER:
+            from .customers import initialize
+
+            initialize(lead, config or Config(), utcnow())
+            db.save(lead)
+            db.audit(lead_id, "CUSTOMER_CREATED", actor, reason)
+        else:
+            db.audit(lead_id, status.value, actor, reason)
 
 
 def record_contact(lead: Lead, config: Config, at: str, confirmed: bool = False) -> None:

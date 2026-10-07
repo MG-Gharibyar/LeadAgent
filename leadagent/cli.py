@@ -10,7 +10,7 @@ from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
 
-from . import batch_outreach
+from . import batch_outreach, customers
 from .config import Config, load_config
 from .database import Database
 from .logging import configure_logging
@@ -95,6 +95,12 @@ def parser() -> argparse.ArgumentParser:
             )
     batch = mail_sub.add_parser("send-approved")
     batch.add_argument("--live", action="store_true")
+    customer_commands = sub.add_parser("customers")
+    customer_actions = customer_commands.add_subparsers(dest="customers_command", required=True)
+    for name in ("list", "due", "preview", "send"):
+        command = customer_actions.add_parser(name)
+        if name == "send":
+            command.add_argument("--actor", required=True)
     outreach = sub.add_parser("outreach")
     actions = outreach.add_subparsers(dest="outreach_command", required=True)
     for name in ("preview", "send"):
@@ -120,6 +126,8 @@ def parser() -> argparse.ArgumentParser:
 
 def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
     command = args.command
+    if command == "customers":
+        return customers.dispatch(args, db, config)
     if command == "outreach":
         return batch_outreach.dispatch(args, db, config)
     if command == "discover":
@@ -159,7 +167,20 @@ def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
         lead = db.get(args.lead_id)
         print(
             json.dumps(
-                {**lead.to_dict(), "delivery_history": db.history(args.lead_id)},
+                {
+                    **lead.to_dict(),
+                    "delivery_history": db.history(args.lead_id),
+                    "customer_contact_history": [
+                        h for h in db.history(args.lead_id) if h["kind"] == "customer_checkin"
+                    ],
+                    "timeline": [
+                        dict(row)
+                        for row in db.connection.execute(
+                            "SELECT action,at,actor,detail FROM audit WHERE lead_id=? ORDER BY id",
+                            (args.lead_id,),
+                        )
+                    ],
+                },
                 ensure_ascii=False,
                 indent=2,
             )
@@ -190,7 +211,7 @@ def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
             "interested": Status.INTERESTED,
             "customer": Status.CUSTOMER,
         }
-        set_status(db, args.lead_id, statuses[command], args.actor, args.reason)
+        set_status(db, args.lead_id, statuses[command], args.actor, args.reason, config)
         print(statuses[command].value)
     elif command == "contacted":
         contacted(db, args.lead_id, config, args.actor, args.basis)

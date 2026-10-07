@@ -65,6 +65,8 @@ class Config:
     report_directory: str = "reports"
     daily_new_lead_limit: int = 20
     minimum_score: int = 70
+    customer_checkin_interval_days: int = 90
+    customer_message_type: str = "QUARTERLY_CHECKIN"
     followup_delay_days: int = 10
     maximum_followups: int = 1
     fit_weight: float = 0.7
@@ -92,12 +94,21 @@ class Config:
             "daily_new_lead_limit": (1, 20),
             "minimum_score": (0, 100),
             "followup_delay_days": (1, 3650),
+            "customer_checkin_interval_days": (1, 3650),
             "maximum_followups": (0, 1),
         }
         for name, (low, high) in integer_ranges.items():
             value = getattr(self, name)
             if type(value) is not int or not low <= value <= high:
                 raise ValueError(f"{name} must be an integer in {low}..{high}")
+        if self.customer_message_type not in {
+            "QUARTERLY_CHECKIN",
+            "SECURITY_REVIEW",
+            "BACKUP_REVIEW",
+            "RETEST",
+            "GENERAL_SERVICE",
+        }:
+            raise ValueError("Unsupported customer message type")
         if type(self.fit_weight) not in (int, float) or not 0 <= self.fit_weight <= 1:
             raise ValueError("fit_weight must be 0..1")
         for configured, defaults in (

@@ -254,3 +254,45 @@ Tests use synthetic organizations exclusively, including concurrent deduplicatio
 mail tests, suppression, exact follow-up timing, dry-run, uncertain delivery, provenance,
 public-access controls, reports, CLI and invalid configurations. CI validates on Python 3.11.
 The operating instructions for agents are in [AGENTS.md](AGENTS.md).
+
+### Recurring customer check-ins
+
+`python -m leadagent customer ID --actor OWNER` marks an organization as a customer,
+permanently excludes it from acquisition outreach, and initializes its first check-in
+for 90 days later. Configure `customer_checkin_interval_days` (for example 30, 90 or
+180) and `customer_message_type` in `config.yaml`. Supported central message types:
+`QUARTERLY_CHECKIN` (default), `SECURITY_REVIEW`, `BACKUP_REVIEW`, `RETEST`,
+`GENERAL_SERVICE`. Templates are rendered centrally when previewing or sending.
+A changed interval applies to newly created customers and the next schedule after
+successful delivery; it does not rewrite existing due dates.
+
+```bash
+python -m leadagent customers list
+python -m leadagent customers due
+python -m leadagent customers preview
+python -m leadagent customers send --actor OWNER
+python -m leadagent show ID
+python -m leadagent unsubscribe ID --actor OWNER --reason 'No further customer check-ins'
+```
+
+`customers due` is suitable for daily cron checks and never sends. `preview` renders
+all due messages without sending. `send` displays due, suppressed and sendable counts,
+renders the messages and requires one `JA` confirmation for the batch. Live sending
+must be enabled in the existing mail configuration; SMTP credentials and the global
+rate limit still apply. Customer eligibility is independent of prospect permission,
+qualification, research freshness and prospect approval. Explicit DO_NOT_CONTACT,
+UNSUBSCRIBED, customer opt-out and invalid/disabled email still block delivery.
+Unsubscribing a customer records `CUSTOMER_OPT_OUT` and preserves its customer history.
+
+Each due period has a durable delivery reservation. SMTP acceptance atomically records
+the delivery and advances the customer's next date by the configured interval, before
+the IMAP Sent copy. A failed Sent copy remains repairable with
+`python -m leadagent outreach repair-sent`; repair never repeats SMTP. Failed or uncertain
+SMTP leaves the due date unchanged but consumes that period's reservation, preventing
+an automatic retry. Successful delivery allows the next recurring period to be sent.
+Customer lifecycle and contact events appear in `show ID`.
+
+Schema v4 preserves acquisition deliveries, identity aliases, suppression and audit
+history. Existing customers receive an initial 90-day schedule based on their recorded
+CUSTOMER event (migration time if none exists); running the migration again does not
+reset the schedule.

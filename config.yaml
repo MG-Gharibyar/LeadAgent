@@ -54,3 +54,7 @@ intent_points:
   multiple_locations: 10
   security_concern: 15
   partner_fit: 20
+
+# Customer check-ins use their own recurring workflow and batch confirmation.
+customer_checkin_interval_days: 90
+customer_message_type: QUARTERLY_CHECKIN

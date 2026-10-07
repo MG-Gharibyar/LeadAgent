@@ -4,11 +4,12 @@ import json
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
 from .identity import company_key, normalize_domain, normalize_name
-from .models import Lead, utcnow
+from .models import Lead, instant, utcnow
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS leads (
@@ -59,7 +60,7 @@ class Database:
         self.connection.execute("PRAGMA journal_mode=WAL")
         self.connection.execute("PRAGMA busy_timeout=30000")
         version = int(self.connection.execute("PRAGMA user_version").fetchone()[0])
-        if version > 3:
+        if version > 4:
             raise ValueError("Database schema is newer than this application")
         if version < 1:
             self.connection.executescript(
@@ -110,6 +111,54 @@ class Database:
                         "UPDATE deliveries SET sent_copy_status='UNAVAILABLE' WHERE mode='LIVE' AND state='ACCEPTED'"
                     )
                     self.connection.execute("PRAGMA user_version=3")
+
+        if int(self.connection.execute("PRAGMA user_version").fetchone()[0]) < 4:
+            with self.transaction():
+                if int(self.connection.execute("PRAGMA user_version").fetchone()[0]) < 4:
+                    # Rebuild only the delivery table to widen its kind constraint. IDs,
+                    # wire bytes, permission audit and Sent-copy repair state survive.
+                    definition = self.connection.execute(
+                        "SELECT sql FROM sqlite_master WHERE type='table' AND name='deliveries'"
+                    ).fetchone()[0]
+                    definition = definition.replace(
+                        "CREATE TABLE deliveries", "CREATE TABLE deliveries_v4", 1
+                    )
+                    definition = definition.replace(
+                        "'initial', 'followup'", "'initial', 'followup', 'customer_checkin'"
+                    )
+                    self.connection.execute(definition)
+                    self.connection.execute("INSERT INTO deliveries_v4 SELECT * FROM deliveries")
+                    self.connection.execute("DROP TABLE deliveries")
+                    self.connection.execute("ALTER TABLE deliveries_v4 RENAME TO deliveries")
+                    self.connection.execute(
+                        "ALTER TABLE deliveries ADD COLUMN customer_period TEXT NOT NULL DEFAULT ''"
+                    )
+                    self.connection.execute(
+                        "CREATE UNIQUE INDEX idx_one_contact ON deliveries(lead_id,kind) WHERE mode IN ('LIVE','MANUAL') AND kind IN ('initial','followup')"
+                    )
+                    self.connection.execute(
+                        "CREATE UNIQUE INDEX idx_customer_period ON deliveries(lead_id,customer_period) WHERE mode='LIVE' AND kind='customer_checkin'"
+                    )
+                    for lead in self.all():
+                        if lead.customer or lead.outreach_status == "CUSTOMER":
+                            row = self.connection.execute(
+                                "SELECT at FROM audit WHERE lead_id=? AND action='CUSTOMER' ORDER BY id LIMIT 1",
+                                (lead.id,),
+                            ).fetchone()
+                            at = row[0] if row else utcnow()
+                            lead.customer = True
+                            lead.customer_since = at
+                            lead.next_customer_checkin_at = (
+                                instant(at) + timedelta(days=90)
+                            ).isoformat()
+                            self.save(lead)
+                            self.audit(
+                                lead.id,
+                                "CUSTOMER_CREATED",
+                                "migration",
+                                "Existing customer schedule initialized",
+                            )
+                    self.connection.execute("PRAGMA user_version=4")
 
     def close(self) -> None:
         self.connection.close()

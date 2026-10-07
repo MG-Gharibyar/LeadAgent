@@ -38,6 +38,7 @@ class Status(StrEnum):
     REJECTED = "REJECTED"
     DO_NOT_CONTACT = "DO_NOT_CONTACT"
     CUSTOMER = "CUSTOMER"
+    UNSUBSCRIBED = "UNSUBSCRIBED"
 
 
 class Permission(StrEnum):
@@ -117,6 +118,11 @@ class Lead:
     do_not_contact: bool = False
     rejected: bool = False
     customer: bool = False
+    customer_since: str | None = None
+    last_customer_checkin_at: str | None = None
+    next_customer_checkin_at: str | None = None
+    customer_opt_out: bool = False
+    email_disabled: bool = False
     notes: str = ""
     email_permission_status: str = Permission.UNKNOWN.value
     email_permission_basis: str = ""
