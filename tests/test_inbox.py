@@ -1,6 +1,6 @@
+from datetime import UTC, datetime
 from email.message import EmailMessage
 from email.utils import format_datetime
-from datetime import UTC, datetime
 
 from leadagent.inbox import classify_text, ingest_message, match_lead
 from leadagent.models import Status
@@ -9,17 +9,45 @@ from leadagent.models import Status
 def test_classification_rules():
     assert classify_text("", "Bitte keine weiteren E-Mails.", "info@example.de")[0] == "OPT_OUT"
     assert classify_text("", "Wir haben kein Interesse.", "info@example.de")[0] == "NOT_INTERESTED"
-    assert classify_text("", "Können wir nächste Woche einen Termin machen?", "info@example.de")[0] == "MEETING_REQUEST"
-    assert classify_text("", "Bitte senden Sie weitere Informationen zum Umfang.", "info@example.de")[0] == "REQUESTED_INFORMATION"
-    assert classify_text("Delivery Status Notification", "", "mailer-daemon@example.de")[0] == "BOUNCE"
+    assert (
+        classify_text("", "Können wir nächste Woche einen Termin machen?", "info@example.de")[0]
+        == "MEETING_REQUEST"
+    )
+    assert (
+        classify_text(
+            "",
+            "Bitte senden Sie weitere Informationen zum Umfang.",
+            "info@example.de",
+        )[0]
+        == "REQUESTED_INFORMATION"
+    )
+    assert (
+        classify_text("Delivery Status Notification", "", "mailer-daemon@example.de")[0]
+        == "BOUNCE"
+    )
 
 
 def test_thread_matching_and_idempotent_ingest(db, qualified):
     db.save(qualified)
     at = datetime.now(UTC).isoformat()
     db.connection.execute(
-        "INSERT INTO deliveries(lead_id,kind,mode,state,created_at,updated_at,draft_hash,permission_status,permission_basis,approved_by,recipient,message_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-        (qualified.id, "initial", "LIVE", "ACCEPTED", at, at, "h", "CONSENTED", "synthetic", "owner", qualified.public_email, "<sent@example>"),
+        "INSERT INTO deliveries(lead_id,kind,mode,state,created_at,updated_at,draft_hash,"
+        "permission_status,permission_basis,approved_by,recipient,message_id) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        (
+            qualified.id,
+            "initial",
+            "LIVE",
+            "ACCEPTED",
+            at,
+            at,
+            "h",
+            "CONSENTED",
+            "synthetic",
+            "owner",
+            qualified.public_email,
+            "<sent@example>",
+        ),
     )
     assert match_lead(db, "other@example.net", ["<sent@example>"]) == qualified.id
     msg = EmailMessage()

@@ -88,7 +88,8 @@ def update_geo_database(path: str, url: str = GEONAMES_DE_URL) -> int:
                 if len(fields) < 15 or fields[6] != "P" or fields[8] != "DE":
                     continue
                 try:
-                    latitude = float(fields[4]); longitude = float(fields[5])
+                    latitude = float(fields[4])
+                    longitude = float(fields[5])
                     population = int(fields[14] or 0)
                 except ValueError:
                     continue
@@ -103,7 +104,8 @@ def update_geo_database(path: str, url: str = GEONAMES_DE_URL) -> int:
                     previous = places.get(key)
                     if previous is None or int(previous.get("population", 0)) < population:
                         places[key] = record
-    target = Path(path); target.parent.mkdir(parents=True, exist_ok=True)
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
     tmp = target.with_suffix(target.suffix + ".tmp")
     tmp.write_text(json.dumps({"source": url, "attribution": GEONAMES_ATTRIBUTION, "places": places}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     tmp.replace(target)
@@ -113,7 +115,8 @@ def update_geo_database(path: str, url: str = GEONAMES_DE_URL) -> int:
 def parse_area(value: str) -> tuple[str, float]:
     if ":" not in value:
         raise ValueError('Area must be CITY:RADIUS_KM, e.g. "Karlsruhe:50"')
-    city, radius = value.rsplit(":", 1); city = city.strip()
+    city, radius = value.rsplit(":", 1)
+    city = city.strip()
     try:
         radius_km = float(radius)
     except ValueError as exc:
@@ -137,7 +140,8 @@ def resolve_areas(values: list[str], index: GeoIndex) -> list[Area]:
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     radius = 6371.0088
     p1, p2 = math.radians(lat1), math.radians(lat2)
-    dphi = math.radians(lat2 - lat1); dlambda = math.radians(lon2 - lon1)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
     a = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dlambda / 2) ** 2
     return 2 * radius * math.asin(math.sqrt(a))
 

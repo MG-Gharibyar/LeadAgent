@@ -14,7 +14,7 @@ from .database import Database
 from .identity import normalize_domain
 from .models import Status, utcnow
 from .outreach import STOP_STATUSES, set_status
-from .sent_mail import connect, disconnect, mailbox_password, quote
+from .sent_mail import connect, disconnect, mailbox_password
 
 OWN_EMAIL = "kontakt@digitalskills-campus.de"
 
