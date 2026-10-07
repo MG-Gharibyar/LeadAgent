@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import imaplib
 import json
 import os
 import sqlite3
@@ -18,7 +19,7 @@ from .models import Permission, Status
 from .outreach import approve, followup_due, prepare_draft, set_permission, set_status
 from .pipeline import discover
 from .providers import provider_from_config
-from .report import generate_report
+from .report import generate_discovery_report, generate_report
 from .research import Researcher
 from .templates import SECTORS
 from .web import PublicWebClient
@@ -36,6 +37,11 @@ def parser() -> argparse.ArgumentParser:
     discovery = sub.add_parser(
         "discover", help="Discover, research, rank, draft and generate daily report"
     )
+    discovery.add_argument("--sector", choices=list(SECTORS))
+    discovery.add_argument(
+        "--location", help="Search focus, e.g. Karlsruhe and its surrounding region"
+    )
+    discovery.add_argument("--limit", type=int, help="Bound this discovery run")
     discovery.add_argument("--provider", choices=["seeds", "brave", "fixture"])
     discovery.add_argument("--input", help="Seed/fixture JSON path")
     report = sub.add_parser("report")
@@ -101,6 +107,10 @@ def parser() -> argparse.ArgumentParser:
             command.add_argument("--actor", required=True, help="Human confirming this batch")
     actions.add_parser("history")
     actions.add_parser("pending")
+    actions.add_parser("repair-sent", help="Repair failed/pending IMAP copies; never send SMTP")
+    actions.add_parser(
+        "detect-sent", help="Read-only discovery of the IMAP special-use Sent folder"
+    )
     manual = actions.add_parser("mark-contacted")
     manual.add_argument("email")
     manual.add_argument("--actor", required=True)
@@ -117,6 +127,14 @@ def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
             config.discovery.provider = args.provider
         if args.input:
             config.discovery.seeds_file = args.input
+        if args.limit is not None:
+            config.discovery.maximum_candidates = args.limit
+        if args.sector or args.location:
+            from .sectors import configure_search
+
+            configure_search(config.discovery, args.sector, args.location)
+            if not args.provider and not args.input:
+                config.discovery.provider = "brave"
         config.validate()
         run_result = discover(
             db,
@@ -125,7 +143,10 @@ def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
             Researcher(PublicWebClient(config.discovery)),
         )
         paths = generate_report(db, config)
-        print(json.dumps({**asdict(run_result), "reports": [str(path) for path in paths]}))
+        review = generate_discovery_report(db, config, run_result.new_ids, run_result.run_id)
+        print(
+            json.dumps({**asdict(run_result), "reports": [str(path) for path in (*paths, review)]})
+        )
     elif command == "report":
         for path in generate_report(db, config, args.date):
             print(path)
@@ -225,7 +246,7 @@ def main(argv: list[str] | None = None) -> int:
             db, [Path("OutReach/.sent_outreach.json"), Path(".sent_outreach.json")], config
         )
         return dispatch(args, db, config)
-    except (ValueError, OSError, sqlite3.Error) as exc:
+    except (ValueError, OSError, sqlite3.Error, imaplib.IMAP4.error) as exc:
         # File/API exceptions can contain private URLs or query data. Limit their details.
         detail = str(exc) if isinstance(exc, ValueError) else type(exc).__name__
         print(f"Error: {detail}", file=sys.stderr)

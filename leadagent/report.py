@@ -162,3 +162,41 @@ def generate_report(db: Database, config: Config, day: str | None = None) -> tup
 
     _atomic(csv_path, write_csv)
     return markdown, csv_path
+
+
+def generate_discovery_report(
+    db: Database, config: Config, new_ids: list[int], run_id: int
+) -> Path:
+    """Private review report including unqualified candidates, never a send authorization."""
+    directory = Path(config.report_directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / f"discovery-{run_id}-review.md"
+    leads = sorted(
+        (db.get(lead_id) for lead_id in new_ids), key=lambda lead: (-lead.final_score, lead.id or 0)
+    )
+    lines = [
+        f"# Discovery review — run {run_id}",
+        "No mail sent. Candidates below policy threshold remain in review.",
+    ]
+    for lead in leads:
+        lines.extend(
+            [
+                f"\n## {md(lead.company_name)} (ID {lead.id})",
+                f"City: {md(lead.city)} | Postal code: {lead.postal_code} | Website: {lead.website}",
+                f"Domain: {lead.normalized_domain} | Public business email: {lead.public_email or 'Not verified'}",
+                f"Sector: {lead.segment} | Score: {lead.final_score} | Qualified: {bool(lead.qualified_at)}",
+                f"Status: {lead.outreach_status} | Previous contacts: {lead.contact_count}",
+                f"Review risks: {', '.join(lead.risk_disqualification_signals) or 'None detected'}",
+            ]
+        )
+        for reason in lead.score_reasons:
+            lines.append(
+                f"- {reason.reason}: “{md(reason.evidence.excerpt)}” — {reason.evidence.source_url}"
+            )
+        lines.append("Sources: " + ", ".join(lead.source_urls))
+
+    def write_review(handle: TextIO) -> None:
+        handle.write("\n".join(lines) + "\n")
+
+    _atomic(path, write_review)
+    return path

@@ -59,7 +59,7 @@ class Database:
         self.connection.execute("PRAGMA journal_mode=WAL")
         self.connection.execute("PRAGMA busy_timeout=30000")
         version = int(self.connection.execute("PRAGMA user_version").fetchone()[0])
-        if version > 2:
+        if version > 3:
             raise ValueError("Database schema is newer than this application")
         if version < 1:
             self.connection.executescript(
@@ -93,6 +93,23 @@ class Database:
                     lead.initial_delivery_confirmed = bool(accepted)
                     self.save(lead)
                 self.connection.execute("PRAGMA user_version=2")
+
+        version = int(self.connection.execute("PRAGMA user_version").fetchone()[0])
+        if version < 3:
+            with self.transaction():
+                if int(self.connection.execute("PRAGMA user_version").fetchone()[0]) < 3:
+                    for definition in (
+                        "rfc822 BLOB NOT NULL DEFAULT X''",
+                        "sent_copy_status TEXT NOT NULL DEFAULT 'NOT_REQUIRED'",
+                        "sent_folder TEXT NOT NULL DEFAULT ''",
+                        "sent_copied_at TEXT NOT NULL DEFAULT ''",
+                        "sent_copy_error TEXT NOT NULL DEFAULT ''",
+                    ):
+                        self.connection.execute(f"ALTER TABLE deliveries ADD COLUMN {definition}")
+                    self.connection.execute(
+                        "UPDATE deliveries SET sent_copy_status='UNAVAILABLE' WHERE mode='LIVE' AND state='ACCEPTED'"
+                    )
+                    self.connection.execute("PRAGMA user_version=3")
 
     def close(self) -> None:
         self.connection.close()
@@ -234,7 +251,7 @@ class Database:
 
     def history(self, lead_id: int) -> list[dict[str, Any]]:
         return [
-            dict(row)
+            {key: value for key, value in dict(row).items() if key != "rfc822"}
             for row in self.connection.execute(
                 "SELECT * FROM deliveries WHERE lead_id=? ORDER BY id",
                 (lead_id,),

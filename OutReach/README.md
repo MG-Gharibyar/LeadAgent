@@ -55,8 +55,82 @@ identities before importing. No override or history reset is provided.
 Successful acceptance is committed immediately. Reservations commit before
 network I/O; failed/uncertain deliveries consume the slot but are never marked
 ACCEPTED and never retried automatically. Existing suppression, permission audit
-and delivery history are reused; no database schema change is needed.
+and delivery history are reused. Schema migration v3 adds immutable RFC822
+bytes and independent Sent-copy status to delivery records, preserving all existing
+identity, suppression, permission and contact data. Older accepted deliveries
+without original RFC822 bytes are marked UNAVAILABLE; no email is reconstructed
+or resent. Manual historical contacts do not require an automatic Sent copy.
 
 Private lead JSON, histories, databases, reports and credentials are ignored.
 Historical Git commits may already contain legacy data; this change removes
 legacy JSON from tracking without deleting local files or rewriting Git history.
+
+
+## IMAP Sent copies and repair
+
+After SMTP acceptance, the shared Mailer archives the identical RFC822 bytes
+(including Date, Message-ID and MIME content) to mxe9aa.netcup.net:993 over SSL,
+using kontakt@digitalskills-campus.de and the same SMTP mailbox password.
+It discovers the selectable `\Sent` special-use mailbox through IMAP LIST,
+including SPECIAL-USE when advertised. It never guesses a name or creates a folder.
+This is the account's normal Thunderbird Sent mailbox; no Thunderbird integration
+or local profile path is necessary.
+
+SMTP acceptance and contact history commit immediately before the IMAP operation,
+so a failed append cannot erase delivery success. A durable reservation still
+precedes SMTP to protect against crashes. IMAP failure records sent_copy_status
+FAILED, emits a warning, and leaves SMTP state ACCEPTED. A crash between SMTP
+acceptance and archiving leaves PENDING for repair.
+
+```sh
+python -m leadagent outreach detect-sent
+python -m leadagent outreach repair-sent
+```
+
+`detect-sent` only logs in, lists folders and logs out. `repair-sent` only handles
+SMTP-accepted PENDING/FAILED deliveries: it searches and verifies the original
+Message-ID before APPEND, then commits SAVED and the detected folder. Repairs
+serialize under SQLite's write lock and skip already saved copies. If APPEND
+succeeded but its acknowledgement was lost, repair finds the existing copy.
+Neither command invokes SMTP. Set DSC_SMTP_PASSWORD securely in the shell, or
+enter it through getpass in an interactive terminal. Do not put it in Git.
+Sent-copy fields appear in `python -m leadagent show ID` delivery history.
+
+## Karlsruhe-region discovery
+
+```sh
+python -m leadagent discover --sector law_firm --location Karlsruhe --limit 12
+python -m leadagent outreach preview law_firm
+python -m leadagent outreach send law_firm --actor OWNER
+```
+
+Targeted discovery uses the existing official Brave API provider and requires
+DSC_BRAVE_API_KEY. `leadagent.sectors` defines the sector/location search profiles.
+Karlsruhe searches include the requested surrounding towns and a broader region
+query. API result budgets are distributed among locations. This is a practical
+regional search focus around 30–40 km, not a geocoded hard radius. Other towns
+may appear and their publicly sourced locations need review.
+
+When the search key is unavailable, public URLs researched independently can
+be supplied explicitly through the existing seed provider:
+
+```sh
+python -m leadagent discover --sector law_firm --location Karlsruhe --provider seeds --input seeds.local.karlsruhe.json --limit 8
+```
+
+Seeds contain website and optional source_url/company_name/city hints, not email
+bodies or invented research evidence. PublicWebClient still independently checks
+access, robots, rate limits and the source pages. Discovery never invokes SMTP
+or IMAP. The original 20-address campaign migrates before any CLI discovery.
+Contacted/stopped identities are excluded before research whenever their domain
+is known, and again after website/email/name+city alias resolution.
+Generic SEO names such as "Rechtsanwalt Rastatt" are never company+city keys.
+
+Each run records new IDs, duplicate and contacted exclusions, qualification counts,
+sector and location. Private discovery-N-review.md reports include even candidates
+below the qualification threshold. Outreach preview shows the latest relevant
+run counts and companies/cities/emails/websites/sources/scores/reasons. Unqualified
+candidates are visibly REVIEW_ONLY; send selects qualified, unsuppressed records
+with a valid business email, then applies every existing evidence/permission gate.
+Windows use is never inferred just because the business is a law firm. Existing
+law-firm drafting also uses the preserved central template.

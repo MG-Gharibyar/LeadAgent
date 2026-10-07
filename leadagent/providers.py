@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import time
 from collections.abc import Iterable
@@ -52,7 +53,7 @@ class SeedProvider:
             yield Candidate(
                 item.get("company_name", ""),
                 item["website"],
-                item["website"],
+                str(item.get("source_url") or item["website"]),
                 utcnow(),
                 item.get("city", ""),
             )
@@ -99,6 +100,11 @@ class BraveSearchProvider:
         seen: set[str] = set()
         regions = self.config.query_regions
         region = regions[datetime.now(UTC).date().toordinal() % len(regions)] if regions else ""
+        per_query = (
+            max(1, math.ceil(limit / max(1, len(self.config.queries))))
+            if self.config.location
+            else 20
+        )
         for configured_query in self.config.queries:
             query = f"{configured_query} {region}".strip()
             if count >= limit:
@@ -109,7 +115,7 @@ class BraveSearchProvider:
                     "q": query,
                     "country": "DE",
                     "search_lang": "de",
-                    "count": min(20, limit - count),
+                    "count": min(20, per_query, limit - count),
                 }
             )
             request = Request(
@@ -125,7 +131,7 @@ class BraveSearchProvider:
             if len(body) > self.config.max_response_bytes:
                 raise ValueError("Search API response exceeds configured bound")
             results = json.loads(body).get("web", {}).get("results", [])
-            for result in results:
+            for result in results[:per_query]:
                 website = result.get("url", "")
                 if not website.startswith(("http://", "https://")) or website in seen:
                     continue

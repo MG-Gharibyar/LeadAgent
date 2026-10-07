@@ -193,7 +193,81 @@ def test_v1_migration_preserves_history_and_aliases(tmp_path):
     alias = synthetic_lead()
     alias.website = "https://alternative.example"
     assert db.upsert(alias)[1] is False
-    assert db.connection.execute("PRAGMA user_version").fetchone()[0] == 2
+    assert db.connection.execute("PRAGMA user_version").fetchone()[0] == 3
     assert db.history(1)[0]["permission_basis"] == "Synthetic basis"
     assert "text_body" in db.history(1)[0]
+    db.close()
+
+
+def test_generic_seo_titles_do_not_merge_distinct_law_firms(db):
+    from leadagent.models import Lead
+
+    assert company_key("Rechtsanwalt Rastatt", "Rastatt") == ""
+    first, created = db.upsert(
+        Lead("Rechtsanwalt Rastatt", "https://first-law.example", city="Rastatt")
+    )
+    assert created
+    second, created = db.upsert(
+        Lead("Rechtsanwalt Rastatt", "https://second-law.example", city="Rastatt")
+    )
+    assert created and first.id != second.id
+
+
+def test_v2_sent_copy_migration_preserves_all_history(tmp_path):
+    import json
+    import sqlite3
+
+    from leadagent.database import SCHEMA
+
+    path = str(tmp_path / "v2.sqlite3")
+    connection = sqlite3.connect(path)
+    connection.executescript(SCHEMA)
+    lead = synthetic_lead()
+    lead.id = 1
+    lead.do_not_contact = True
+    lead.outreach_status = "DO_NOT_CONTACT"
+    lead.contact_count = 1
+    lead.email_permission_basis = "Synthetic original request"
+    original = json.dumps(lead.to_dict())
+    connection.execute(
+        "INSERT INTO leads(id,normalized_domain,company_key,payload,contact_count) VALUES (1,?,?,?,1)",
+        ("synthetic-1.example", company_key(lead.company_name, lead.city), original),
+    )
+    connection.execute(
+        "INSERT INTO domain_aliases VALUES (?,1,?,?)",
+        ("synthetic-1.example", lead.website, utcnow()),
+    )
+    connection.execute(
+        "INSERT INTO company_aliases VALUES (?,1,?,?)",
+        (company_key(lead.company_name, lead.city), lead.website, utcnow()),
+    )
+    connection.execute(
+        "INSERT INTO audit(lead_id,action,at,actor,detail) VALUES (1,'PERMISSION',?,'reviewer','Synthetic original request')",
+        (utcnow(),),
+    )
+    connection.execute(
+        "INSERT INTO deliveries(lead_id,kind,mode,state,created_at,updated_at,draft_hash,permission_status,permission_basis,approved_by,recipient,message_id) VALUES (1,'initial','LIVE','ACCEPTED',?,?,?,?,?,?,?,?)",
+        (
+            utcnow(),
+            utcnow(),
+            "synthetic-hash",
+            "CONSENTED",
+            "Synthetic original request",
+            "reviewer",
+            lead.public_email,
+            "<original@synthetic.example>",
+        ),
+    )
+    connection.execute("PRAGMA user_version=2")
+    connection.commit()
+    connection.close()
+    db = Database(path)
+    assert db.connection.execute("PRAGMA user_version").fetchone()[0] == 3
+    assert db.connection.execute("SELECT payload FROM leads").fetchone()[0] == original
+    assert db.get(1).suppressed and db.get(1).contact_count == 1
+    assert db.history(1)[0]["state"] == "ACCEPTED"
+    assert db.history(1)[0]["permission_basis"] == "Synthetic original request"
+    assert db.history(1)[0]["sent_copy_status"] == "UNAVAILABLE"
+    assert db.connection.execute("SELECT COUNT(*) FROM audit").fetchone()[0] == 1
+    assert db.connection.execute("SELECT COUNT(*) FROM domain_aliases").fetchone()[0] == 1
     db.close()

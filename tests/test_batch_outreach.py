@@ -142,11 +142,11 @@ def test_sender_envelope_and_kit_rejection(monkeypatch):
     message = EmailMessage()
     message["To"] = "info@recipient.example"
     with patch("leadagent.mail.smtplib.SMTP_SSL") as client:
-        client.return_value.send_message.return_value = {}
+        client.return_value.sendmail.return_value = {}
         smtp_transport(settings, message)
-        client.return_value.send_message.assert_called_once_with(
-            message, from_addr=FROM_EMAIL, to_addrs=["info@recipient.example"]
-        )
+        client.return_value.sendmail.assert_called_once()
+        call = client.return_value.sendmail.call_args
+        assert call.args[:2] == (FROM_EMAIL, ["info@recipient.example"])
     monkeypatch.setenv("DSC_SMTP_USERNAME", "kit@kit.example")
     monkeypatch.setenv("DSC_SMTP_PASSWORD", "synthetic")
     with pytest.raises(ValueError, match="SMTP user"):

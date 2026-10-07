@@ -10,6 +10,7 @@ from .database import Database
 from .models import Evidence, Lead, Permission, Segment, Status, instant, utcnow
 from .research import plain_excerpt
 from .rules import INTENT_RULES
+from .templates import render
 
 STOP_STATUSES = {
     Status.RESPONDED.value,
@@ -18,6 +19,15 @@ STOP_STATUSES = {
     Status.DO_NOT_CONTACT.value,
     Status.CUSTOMER.value,
 }
+
+
+def initial_contacted(lead: Lead) -> bool:
+    return bool(
+        lead.contact_count
+        or lead.suppressed
+        or lead.outreach_status
+        in STOP_STATUSES | {Status.CONTACTED.value, Status.FOLLOWUP_SENT.value}
+    )
 
 
 def draft_hash(lead: Lead) -> str:
@@ -116,6 +126,8 @@ def prepare_draft(lead: Lead, kind: str = "initial") -> Lead:
         "kontakt@digitalskills-campus.de\ndigitalskills-campus.de\n\n"
         "Falls Sie keine weitere Nachricht wünschen, genügt eine kurze Antwort."
     )
+    if kind == "initial" and lead.segment == Segment.LAW.value:
+        subject, body = render("law_firm", company)
     lead.draft_subject, lead.draft_text = subject, body
     lead.draft_html = (
         '<!doctype html><html lang="de"><body>'
@@ -144,7 +156,7 @@ def approve(db: Database, lead_id: int, actor: str, config: Config) -> Lead:
             raise ValueError("Lead is suppressed or has already responded")
         if not lead.draft_text or lead.final_score < config.minimum_score:
             raise ValueError("A qualified, evidence-based draft is required")
-        if lead.draft_kind == "initial" and lead.contact_count:
+        if lead.draft_kind == "initial" and initial_contacted(lead):
             raise ValueError("Initial outreach already attempted or recorded")
         if lead.draft_kind == "followup" and not followup_due(lead, config):
             raise ValueError("Follow-up is not due or exhausted")

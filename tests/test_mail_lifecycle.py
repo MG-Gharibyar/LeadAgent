@@ -202,11 +202,11 @@ def test_smtp_tls(monkeypatch):
     )
     client = MagicMock()
     with patch("leadagent.mail.smtplib.SMTP", return_value=client):
-        client.send_message.return_value = {}
+        client.sendmail.return_value = {}
         smtp_transport(settings, EmailMessage())
     client.starttls.assert_called_once()
     client.login.assert_called_once_with("user", "test-placeholder")
-    client.send_message.assert_called_once()
+    client.sendmail.assert_called_once()
     client.close.assert_called_once()
 
 

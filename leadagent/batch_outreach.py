@@ -14,12 +14,13 @@ from .database import Database
 from .identity import normalize_domain
 from .mail import Mailer, blockers, contacted, email_valid
 from .models import Lead
-from .outreach import STOP_STATUSES, approve, draft_hash
+from .outreach import approve, draft_hash, initial_contacted
+from .sent_mail import append_sent, detect_sent, mailbox_password, repair_sent
 from .templates import SECTORS, render
 
 
 def stopped(lead: Lead) -> bool:
-    return bool(lead.contact_count or lead.suppressed or lead.outreach_status in STOP_STATUSES)
+    return initial_contacted(lead)
 
 
 def import_leads(db: Database, path: Path, sector: str, config: Config) -> list[Lead]:
@@ -111,6 +112,21 @@ def draft(lead: Lead) -> None:
 def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
     migrate_sent(db, [Path("OutReach/.sent_outreach.json"), Path(".sent_outreach.json")], config)
     action = args.outreach_command
+    if action == "detect-sent":
+        print(f"IMAP \\Sent: {detect_sent(mailbox_password())}")
+        return 0
+    if action == "repair-sent":
+        count = db.connection.execute(
+            "SELECT COUNT(*) FROM deliveries WHERE mode='LIVE' AND state='ACCEPTED' AND sent_copy_status IN ('PENDING','FAILED')"
+        ).fetchone()[0]
+        if not count:
+            print("Keine ausstehenden IMAP-Sent-Kopien; kein SMTP-Versand.")
+            return 0
+        password = mailbox_password()
+        results = repair_sent(db, lambda raw, message_id: append_sent(password, raw, message_id))
+        for repaired in results:
+            print(json.dumps(repaired, ensure_ascii=False))
+        return int(any(result["sent_copy_status"] == "FAILED" for result in results))
     if action == "mark-contacted":
         mark_contacted(db, args.email, config, args.actor, args.notes)
         return 0
@@ -151,13 +167,51 @@ def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
         if stopped(lead) or lead.id in seen:
             continue
         seen.add(lead.id)
+        if action == "send" and (
+            lead.final_score < config.minimum_score
+            or not lead.qualified_at
+            or not email_valid(lead.public_email)
+        ):
+            continue
         draft(lead)
         db.save(lead)
         pending.append(lead)
     print(
         f"Sektor: {args.sector}\nGesamt: {len(leads)}\nBereits kontaktiert/gesperrt: {already}\nÜbersprungen: {len(leads) - len(pending)}\nOffen: {len(pending)}"
     )
+    qualified_count = len(
+        {
+            lead.id
+            for lead in leads
+            if lead.qualified_at
+            and lead.final_score >= config.minimum_score
+            and not stopped(lead)
+            and email_valid(lead.public_email)
+        }
+    )
+    summaries = [
+        json.loads(row[0])
+        for row in db.connection.execute(
+            "SELECT summary FROM runs WHERE summary != '' ORDER BY id DESC"
+        )
+    ]
+    summary: dict[str, Any] = next(
+        (item for item in summaries if item.get("sector", "") in {"", args.sector}), {}
+    )
+    print(
+        f"Discovered: {summary.get('discovered', 0)}\nDuplicates: {summary.get('duplicates', 0)}\nAlready contacted: {already}\nQualified: {qualified_count}\nPending outreach: {qualified_count}"
+    )
     for lead in pending:
+        print(
+            "PENDING_OUTREACH"
+            if lead.qualified_at
+            and lead.final_score >= config.minimum_score
+            and email_valid(lead.public_email)
+            else "REVIEW_ONLY — below qualification policy"
+        )
+        print(
+            f"City: {lead.city or 'unverified'} | Website: {lead.website} | Source: {', '.join(lead.source_urls)} | Score: {lead.final_score} | Reasons: {'; '.join(reason.reason for reason in lead.score_reasons) or 'Not yet qualified'}"
+        )
         print(
             f"\n{lead.company_name} <{lead.public_email}>\nBetreff: {lead.draft_subject}\n{lead.draft_text}"
         )
@@ -198,6 +252,8 @@ def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
             raise ValueError("Displayed draft changed; preview and confirm a fresh batch")
         approve(db, lead.id or 0, args.actor, config)
         result = Mailer(db, config).send(lead.id or 0, live=True)
-        print(f"{lead.company_name}: {result.state}")
+        print(
+            f"{lead.company_name}: {result.state}; sent_copy_status={result.sent_copy_status}; folder={result.sent_folder}"
+        )
         failures += result.state != "ACCEPTED"
     return 1 if failures else 0

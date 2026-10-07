@@ -5,15 +5,18 @@ import re
 import smtplib
 import ssl
 from collections.abc import Callable
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from email import policy
 from email.message import EmailMessage
-from email.utils import formataddr, make_msgid
+from email.utils import format_datetime, formataddr, make_msgid
 
 from .config import Config
 from .database import Database
 from .models import Lead, Status, instant, utcnow
 from .outreach import STOP_STATUSES, draft_hash, followup_due, record_contact
+from .sent_mail import SentCopyTransport, append_sent, save_sent_copy
 
 FROM_EMAIL = "kontakt@digitalskills-campus.de"
 SMTP_USER = "kontakt@digitalskills-campus.de"
@@ -81,6 +84,7 @@ def build_message(lead: Lead, settings: SMTPSettings | None = None) -> EmailMess
     message["Reply-To"] = FROM_EMAIL
     message["To"] = lead.public_email
     message["Subject"] = lead.draft_subject
+    message["Date"] = format_datetime(datetime.now(UTC))
     message["Message-ID"] = make_msgid(domain="digitalskills-campus.de")
     message.set_content(lead.draft_text)
     message.add_alternative(lead.draft_html, subtype="html")
@@ -149,11 +153,14 @@ def smtp_transport(settings: SMTPSettings, message: EmailMessage) -> None:
             client.starttls(context=context)
             client.ehlo()
         client.login(settings.username, settings.password)
-        refused = client.send_message(message, from_addr=FROM_EMAIL, to_addrs=[str(message["To"])])
+        refused = client.sendmail(
+            FROM_EMAIL, [str(message["To"])], message.as_bytes(policy=policy.SMTP)
+        )
         if refused:
             raise smtplib.SMTPRecipientsRefused(refused)
     finally:
-        client.close()
+        with suppress(OSError):
+            client.close()
 
 
 @dataclass
@@ -161,13 +168,20 @@ class DeliveryResult:
     delivery_id: int
     state: str
     blockers: list[str]
+    sent_copy_status: str = "NOT_REQUIRED"
+    sent_folder: str = ""
 
 
 class Mailer:
     def __init__(
-        self, db: Database, config: Config, transport: Callable[[EmailMessage], None] | None = None
+        self,
+        db: Database,
+        config: Config,
+        transport: Callable[[EmailMessage], None] | None = None,
+        sent_copy_transport: SentCopyTransport | None = None,
     ) -> None:
         self.db, self.config, self.transport = db, config, transport
+        self.sent_copy_transport = sent_copy_transport
 
     def send(self, lead_id: int, live: bool = False) -> DeliveryResult:
         settings = None
@@ -185,6 +199,7 @@ class Mailer:
             if live and self.transport is None and lead.normalized_domain.endswith(".example"):
                 raise ValueError("Synthetic fixture domains cannot receive real SMTP mail")
             message = build_message(lead, settings)
+            wire_message = message.as_bytes(policy=policy.SMTP)
             reasons = blockers(lead, self.config)
             if live:
                 if not self.config.mail.automatic_sending_enabled:
@@ -223,6 +238,9 @@ class Mailer:
             )
             delivery_id = cursor.lastrowid
             assert delivery_id is not None
+            self.db.connection.execute(
+                "UPDATE deliveries SET rfc822=? WHERE id=?", (wire_message, delivery_id)
+            )
             if live:
                 # Reserve before network I/O. Crashes and uncertain SMTP failures never cause retry.
                 record_contact(lead, self.config, at)
@@ -253,14 +271,14 @@ class Mailer:
                     assert settings is not None
                     smtp_transport(settings, message)
                 self.db.connection.execute(
-                    "UPDATE deliveries SET state='ACCEPTED',updated_at=? WHERE id=?",
+                    "UPDATE deliveries SET state='ACCEPTED',sent_copy_status='PENDING',updated_at=? WHERE id=?",
                     (utcnow(), delivery_id),
                 )
                 if lead.draft_kind == "initial":
                     current.initial_delivery_confirmed = True
                     self.db.save(current)
                 self.db.audit(lead_id, "SMTP_ACCEPTED", lead.approved_by, str(delivery_id))
-            return DeliveryResult(delivery_id, "ACCEPTED", [])
+
         except Exception as exc:
             # SMTP errors may include addresses/credentials; record only the exception class.
             with self.db.transaction():
@@ -275,6 +293,16 @@ class Mailer:
                 self.db.save(current)
                 self.db.audit(lead_id, "DELIVERY_FAILED_OR_UNCERTAIN", "system", type(exc).__name__)
             return DeliveryResult(delivery_id, "FAILED_OR_UNCERTAIN", [type(exc).__name__])
+
+        def copy_transport(raw: bytes, message_id: str) -> str:
+            if self.sent_copy_transport is not None:
+                return self.sent_copy_transport(raw, message_id)
+            if settings is None:
+                raise ValueError("Custom SMTP transport requires an explicit Sent-copy transport")
+            return append_sent(settings.password, raw, message_id)
+
+        folder = save_sent_copy(self.db, delivery_id, copy_transport)
+        return DeliveryResult(delivery_id, "ACCEPTED", [], "SAVED" if folder else "FAILED", folder)
 
 
 def contacted(db: Database, lead_id: int, config: Config, actor: str, basis: str) -> None:

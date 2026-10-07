@@ -12,6 +12,8 @@ from .rules import FIT_RULES, INTENT_RULES
 
 @dataclass
 class DiscoveryConfig:
+    sector: str = ""
+    location: str = ""
     provider: str = "seeds"
     seeds_file: str = "seeds.local.json"
     maximum_candidates: int = 80
@@ -122,6 +124,18 @@ class Config:
                 or entry["target"] < 0
             ):
                 raise ValueError("Segment target must be a nonnegative integer")
+        if not isinstance(self.discovery.sector, str) or self.discovery.sector not in {
+            "",
+            "law_firm",
+            "medical_practice",
+            "tax_advisor",
+            "it_service_provider",
+        }:
+            raise ValueError("Unsupported discovery sector")
+        if not isinstance(self.discovery.location, str) or any(
+            c in self.discovery.location for c in "\r\n"
+        ):
+            raise ValueError("Invalid discovery location")
         if self.discovery.provider not in {"seeds", "brave", "fixture"}:
             raise ValueError("Unknown discovery provider")
         for name in ("maximum_candidates", "maximum_pages_per_company", "max_response_bytes"):

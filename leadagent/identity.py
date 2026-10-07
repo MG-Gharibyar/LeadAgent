@@ -32,5 +32,28 @@ def normalize_name(value: str) -> str:
 
 
 def company_key(name: str, city: str) -> str:
-    # Never merge unrelated generic names without a publicly sourced city.
-    return f"{normalize_name(name)}|{normalize_name(city)}" if city.strip() else ""
+    # Generic SEO labels (e.g. "Rechtsanwalt Rastatt") do not identify a firm.
+    generic = {
+        "rechtsanwalt",
+        "rechtsanwalte",
+        "rechtsanwaltin",
+        "rechtsanwaltinnen",
+        "anwalt",
+        "anwalte",
+        "fachanwalt",
+        "fachanwalte",
+        "kanzlei",
+        "anwaltskanzlei",
+        "rechtsanwaltskanzlei",
+        "steuerberater",
+        "steuerberatung",
+        "arztpraxis",
+        "praxis",
+        "home",
+        "startseite",
+        "willkommen",
+        "in",
+        "und",
+    }
+    distinctive = set(normalize_name(name).split()) - set(normalize_name(city).split()) - generic
+    return f"{normalize_name(name)}|{normalize_name(city)}" if city.strip() and distinctive else ""
