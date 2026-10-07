@@ -1,0 +1,104 @@
+{
+  "leads": [
+    {
+      "id": 1,
+      "company": "WHBS | Werner Haarer Süß Rechtsanwälte Fachanwälte Steuerberater PartGmbB",
+      "email": "info@kanzlei-whbs.de"
+    },
+    {
+      "id": 2,
+      "company": "DENNIG & KOLLEGEN",
+      "email": "info@dennig-kollegen.de"
+    },
+    {
+      "id": 3,
+      "company": "Die Anwälte GGG",
+      "email": "post@ggg-kanzlei.de"
+    },
+    {
+      "id": 4,
+      "company": "SCHORK KAUFFMANN BREMENKAMP",
+      "email": "karlsruhe@skb-legal.com"
+    },
+    {
+      "id": 5,
+      "company": "Nonnenmacher Rechtsanwälte und Steuerberater",
+      "email": "rechtsanwaelte@nonnenmacher.de"
+    },
+    {
+      "id": 6,
+      "company": "SFW Fachanwälte für Arbeitsrecht",
+      "email": "karlsruhe@sfw-arbeitsrecht.de"
+    },
+    {
+      "id": 7,
+      "company": "MARTIN RECHTSANWÄLTE",
+      "email": "info@martin-anwaelte.de"
+    },
+    {
+      "id": 8,
+      "company": "Rechtsanwälte Dr. Schmitt und Kollegen",
+      "email": "kanzlei@rae-dr-schmitt.de"
+    },
+    {
+      "id": 9,
+      "company": "Kanzlei SCHROTH § KOLLEGEN",
+      "email": "info@schroth-kollegen.de"
+    },
+    {
+      "id": 10,
+      "company": "Just & Partner Fachanwälte für Strafrecht",
+      "email": "kontakt@just-und-partner.de"
+    },
+    {
+      "id": 11,
+      "company": "Baier Depner Rechtsanwälte",
+      "email": "kontakt@bd-kanzlei.de"
+    },
+    {
+      "id": 12,
+      "company": "Müller-Hof Rechtsanwälte",
+      "email": "anwaelte@mueller-hof.de"
+    },
+    {
+      "id": 13,
+      "company": "Anwaltskanzlei Küster und Kollegen",
+      "email": "info@kkk-law.de"
+    },
+    {
+      "id": 14,
+      "company": "Olivo & Kirsch Fachanwälte",
+      "email": "karlsruhe@ok-fachanwalt.de"
+    },
+    {
+      "id": 15,
+      "company": "Hartmann & Pinterić",
+      "email": "info@sfp-kanzlei.de"
+    },
+    {
+      "id": 16,
+      "company": "Kanzlei LÖWEN",
+      "email": "info@kanzlei-loewen.de"
+    },
+    {
+      "id": 17,
+      "company": "Rechtsanwälte Gnad und Götzelmann",
+      "email": "info@rechtsanwaelte-ka.de"
+    },
+    {
+      "id": 18,
+      "company": "Anwaltskanzlei Schimanek",
+      "email": "rahp.schimanek@t-online.de"
+    },
+    {
+      "id": 19,
+      "company": "Oliver Maier Rechtsanwalt & Strafverteidiger",
+      "email": "kontakt@rechtsanwalt-oliver-maier.de"
+    },
+    {
+      "id": 20,
+      "company": "Rechtsanwaltskanzlei Prof. Beisel",
+      "email": "info@beiselka.de"
+    }
+  ]
+}
