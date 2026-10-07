@@ -107,7 +107,10 @@ def update_geo_database(path: str, url: str = GEONAMES_DE_URL) -> int:
                     if not key:
                         continue
                     previous = places.get(key)
-                    if previous is None or int(previous.get("population", 0)) < population:
+                    previous_population = previous.get("population", 0) if previous else 0
+                    if not isinstance(previous_population, int):
+                        previous_population = 0
+                    if previous is None or previous_population < population:
                         places[key] = record
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)

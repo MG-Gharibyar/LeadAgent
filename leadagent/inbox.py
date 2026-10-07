@@ -19,6 +19,19 @@ from .sent_mail import connect, disconnect, mailbox_password
 OWN_EMAIL = "kontakt@digitalskills-campus.de"
 
 
+def _decode_part(part: Message) -> str:
+    payload = part.get_payload(decode=True)
+    if isinstance(payload, bytes):
+        charset = part.get_content_charset() or "utf-8"
+        try:
+            return payload.decode(charset, errors="replace")
+        except LookupError:
+            return payload.decode("utf-8", errors="replace")
+    if isinstance(payload, str):
+        return payload
+    return ""
+
+
 def message_text(message: Message) -> str:
     if message.is_multipart():
         parts = []
@@ -27,16 +40,11 @@ def message_text(message: Message) -> str:
                 part.get_content_type() == "text/plain"
                 and "attachment" not in str(part.get("Content-Disposition", "")).lower()
             ):
-                try:
-                    parts.append(part.get_content())
-                except (LookupError, UnicodeError):
-                    continue
+                text = _decode_part(part)
+                if text:
+                    parts.append(text)
         return "\n".join(parts)[:8000]
-    try:
-        return str(message.get_content())[:8000]
-    except (LookupError, UnicodeError):
-        payload = message.get_payload(decode=True) or b""
-        return payload.decode("utf-8", errors="replace")[:8000]
+    return _decode_part(message)[:8000]
 
 
 def classify_text(subject: str, body: str, sender: str) -> tuple[str, float, str, str]:
@@ -211,7 +219,7 @@ def sync(db: Database, limit: int = 100) -> int:
         status, _ = client.select("INBOX", readonly=True)
         if status != "OK":
             raise ValueError("Cannot select INBOX")
-        status, data = client.uid("SEARCH", None, "ALL")
+        status, data = client.uid("SEARCH", "ALL")
         if status != "OK" or not data or not isinstance(data[0], bytes):
             raise ValueError("Cannot search INBOX")
         uids = data[0].split()[-limit:]
