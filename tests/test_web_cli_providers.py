@@ -112,10 +112,13 @@ def test_fixture_rejects_real_domains(tmp_path):
         list(FixtureProvider(str(path)).discover(20))
 
 
-def test_search_requires_api_key(monkeypatch):
+def test_search_without_api_key_falls_back(monkeypatch):
     monkeypatch.delenv("DSC_BRAVE_API_KEY", raising=False)
-    with pytest.raises(ValueError, match="DSC_BRAVE_API_KEY"):
-        list(BraveSearchProvider(DiscoveryConfig()).discover(20))
+    with patch(
+        "leadagent.free_providers.FreeDiscoveryProvider.discover", return_value=iter([])
+    ) as free:
+        assert list(BraveSearchProvider(DiscoveryConfig()).discover(20)) == []
+        free.assert_called_once_with(20)
 
 
 def test_cli_end_to_end(tmp_path, capsys, monkeypatch):

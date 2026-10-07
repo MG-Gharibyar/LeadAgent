@@ -14,8 +14,9 @@ from .rules import FIT_RULES, INTENT_RULES
 class DiscoveryConfig:
     sector: str = ""
     location: str = ""
-    provider: str = "seeds"
+    provider: str = "free"
     seeds_file: str = "seeds.local.json"
+    cache_directory: str = "cache/discovery"
     maximum_candidates: int = 80
     maximum_pages_per_company: int = 5
     request_interval_seconds: float = 2
@@ -136,7 +137,7 @@ class Config:
             c in self.discovery.location for c in "\r\n"
         ):
             raise ValueError("Invalid discovery location")
-        if self.discovery.provider not in {"seeds", "brave", "fixture"}:
+        if self.discovery.provider not in {"free", "seeds", "brave", "fixture"}:
             raise ValueError("Unknown discovery provider")
         for name in ("maximum_candidates", "maximum_pages_per_company", "max_response_bytes"):
             value = getattr(self.discovery, name)
@@ -154,8 +155,6 @@ class Config:
         ):
             if not isinstance(value, list) or any(not isinstance(x, str) for x in value):
                 raise ValueError("Discovery hosts and queries must be string lists")
-        if self.discovery.provider == "brave" and not self.discovery.queries:
-            raise ValueError("Brave discovery requires at least one configured query")
         if any(len(query) > 550 or len(query.split()) > 70 for query in self.discovery.queries):
             raise ValueError("Search queries must fit API limits, including the appended region")
         if type(self.mail.automatic_sending_enabled) is not bool:
@@ -169,7 +168,12 @@ class Config:
             value = getattr(self.mail, name)
             if type(value) is not int or value < 1:
                 raise ValueError(f"{name} must be a positive integer")
-        for value in (self.database, self.report_directory, self.discovery.seeds_file):
+        for value in (
+            self.database,
+            self.report_directory,
+            self.discovery.seeds_file,
+            self.discovery.cache_directory,
+        ):
             if not isinstance(value, str) or not value.strip():
                 raise ValueError("Paths must be nonempty strings")
 

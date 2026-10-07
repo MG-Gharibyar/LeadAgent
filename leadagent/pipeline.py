@@ -31,6 +31,9 @@ class RunResult:
     new_ids: list[int] = field(default_factory=list)
     already_contacted: int = 0
     out_of_sector: int = 0
+    candidates_found: int = 0
+    discovery_sources: dict[str, dict[str, str | int]] = field(default_factory=dict)
+    directory_duplicates: int = 0
 
 
 def select_new(
@@ -96,6 +99,7 @@ def discover(
         for index, candidate in enumerate(provider.discover(config.discovery.maximum_candidates)):
             if index >= config.discovery.maximum_candidates:
                 break
+            result.candidates_found += 1
             try:
                 domain = normalize_domain(candidate.website)
                 known = db.connection.execute(
@@ -141,6 +145,8 @@ def discover(
             researched_ids if config.discovery.sector or config.discovery.location else None,
         )
     finally:
+        result.discovery_sources = getattr(provider, "source_results", {})
+        result.directory_duplicates = getattr(provider, "duplicate_domains", 0)
         db.connection.execute(
             "UPDATE runs SET completed_at=?,summary=? WHERE id=?",
             (

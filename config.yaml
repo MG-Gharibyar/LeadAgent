@@ -16,7 +16,7 @@ segments:
   it_service_provider:
     target: 4
 discovery:
-  provider: seeds
+  provider: free
   seeds_file: seeds.local.json
   maximum_candidates: 80
   maximum_pages_per_company: 5

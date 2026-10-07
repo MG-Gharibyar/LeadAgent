@@ -27,6 +27,7 @@ class Candidate:
     # Only fixture providers may directly supply evidence. Web providers research independently.
     fixture: dict[str, Any] | None = None
     aliases: list[tuple[str, str]] = field(default_factory=list)
+    discovery_sources: list[tuple[str, str]] = field(default_factory=list)
 
 
 class DiscoveryProvider(Protocol):
@@ -91,11 +92,32 @@ class BraveSearchProvider:
 
     def __init__(self, config: DiscoveryConfig) -> None:
         self.config = config
+        self.source_results: dict[str, dict[str, str | int]] = {}
 
     def discover(self, limit: int) -> Iterable[Candidate]:
+        seen: set[str] = set()
+        try:
+            for candidate in self._discover(limit):
+                seen.add(normalize_domain(candidate.website))
+                yield candidate
+        except (ValueError, OSError, TypeError, KeyError, AttributeError) as exc:
+            self.source_results["brave"] = {"status": "skipped", "error": type(exc).__name__}
+            from .free_providers import FreeDiscoveryProvider
+
+            free = FreeDiscoveryProvider(self.config)
+            for candidate in free.discover(limit):
+                domain = normalize_domain(candidate.website)
+                if domain not in seen:
+                    seen.add(domain)
+                    yield candidate
+                if len(seen) >= limit:
+                    break
+            self.source_results.update(free.source_results)
+
+    def _discover(self, limit: int) -> Iterable[Candidate]:
         key = os.environ.get("DSC_BRAVE_API_KEY")
-        if not key:
-            raise ValueError("Brave discovery requires DSC_BRAVE_API_KEY and permitted API use")
+        if not key or not self.config.queries:
+            raise ValueError("Optional Brave credentials/queries unavailable")
         count = 0
         seen: set[str] = set()
         regions = self.config.query_regions
@@ -143,6 +165,10 @@ class BraveSearchProvider:
 
 
 def provider_from_config(config: DiscoveryConfig) -> DiscoveryProvider:
+    if config.provider == "free":
+        from .free_providers import FreeDiscoveryProvider
+
+        return FreeDiscoveryProvider(config)
     if config.provider == "fixture":
         return FixtureProvider(config.seeds_file)
     if config.provider == "brave":

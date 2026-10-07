@@ -42,7 +42,7 @@ def parser() -> argparse.ArgumentParser:
         "--location", help="Search focus, e.g. Karlsruhe and its surrounding region"
     )
     discovery.add_argument("--limit", type=int, help="Bound this discovery run")
-    discovery.add_argument("--provider", choices=["seeds", "brave", "fixture"])
+    discovery.add_argument("--provider", choices=["free", "seeds", "brave", "fixture"])
     discovery.add_argument("--input", help="Seed/fixture JSON path")
     report = sub.add_parser("report")
     report.add_argument("--date")
@@ -134,7 +134,7 @@ def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
 
             configure_search(config.discovery, args.sector, args.location)
             if not args.provider and not args.input:
-                config.discovery.provider = "brave"
+                config.discovery.provider = "free"
         config.validate()
         run_result = discover(
             db,

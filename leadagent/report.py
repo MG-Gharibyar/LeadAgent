@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import json
 import os
 import tempfile
 from collections.abc import Callable
@@ -178,6 +179,19 @@ def generate_discovery_report(
         f"# Discovery review — run {run_id}",
         "No mail sent. Candidates below policy threshold remain in review.",
     ]
+    run = db.connection.execute("SELECT summary FROM runs WHERE id=?", (run_id,)).fetchone()
+    if run and run[0]:
+        summary = json.loads(run[0])
+        lines.extend(
+            [
+                f"Candidates found: {summary.get('candidates_found', 0)}",
+                f"Already contacted excluded: {summary.get('already_contacted', 0)}",
+                f"Directory domain duplicates: {summary.get('directory_duplicates', 0)}",
+                "Discovery sources (hints only): "
+                + json.dumps(summary.get("discovery_sources", {})),
+                "OSM discovery data: © OpenStreetMap contributors, ODbL (https://www.openstreetmap.org/copyright)",
+            ]
+        )
     for lead in leads:
         lines.extend(
             [

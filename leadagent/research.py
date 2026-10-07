@@ -178,11 +178,11 @@ def _contact(lead: Lead, page: Page, doc: Document, region: str = "") -> None:
             city_pattern = (
                 r"Weingarten\s+\(?Baden\)?" if city == "Weingarten Baden" else re.escape(city)
             )
-            regional_address = re.search(r"\b(\d{5})\s+(" + city_pattern + r")\b", text, re.I)
+            regional_address = re.search(r"\b(\d{5})\s+(" + city_pattern + r")(?!\w)", text, re.I)
             if regional_address:
                 lead.postal_code, lead.city, lead.country = (
                     regional_address[1],
-                    regional_address[2],
+                    city.replace("Weingarten Baden", "Weingarten (Baden)"),
                     "Germany",
                 )
                 lead.evidence.append(
@@ -244,6 +244,19 @@ class Researcher:
             Evidence("company_name", name, name, root_page.url, root_page.retrieved_at)
         )
         lead.source_urls.append(candidate.source_url)
+        for source_url, retrieved_at in candidate.discovery_sources or [
+            (candidate.source_url, candidate.retrieved_at)
+        ]:
+            lead.source_urls.append(source_url)
+            lead.evidence.append(
+                Evidence(
+                    "discovery",
+                    "directory_hint",
+                    "Discovery only; independently research company website",
+                    source_url,
+                    retrieved_at,
+                )
+            )
         root_domain = normalize_domain(root_page.url)
         # Search results can be directory entries. Require a home/profile segment and legal identity.
         parsed = urlsplit(root_page.url)

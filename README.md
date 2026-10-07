@@ -44,21 +44,54 @@ ignored by Git. [Committed synthetic report](examples/synthetic-leads.md) and
 
 ## Discovery providers and sources
 
-1. `seeds`: public company websites from an owner-maintained local JSON file, for example
-   `[{"website": "https://company.example/"}]`. Names/cities in seed files are hints;
-   public pages must verify identity and German location.
-2. `brave`: official Brave Search API, configured queries targeted to Germany and German
-   content, with a daily rotating region. Requires `DSC_BRAVE_API_KEY`, API entitlement
-   and permitted storage/use. Results identify URLs; search snippets are not scored as
-   company facts. See [official API country/language documentation](https://api-dashboard.search.brave.com/app/documentation/web-search/codes).
-3. `fixture`: reserved `.example` synthetic evidence, completely offline. Its simulated
-   retrieval timestamps are rebased to the run time so the demonstration remains usable.
+1. `free` (**default**): no API key, subscription, or paid service. Combines:
+   - OpenStreetMap business listings through the nonprofit
+     [Private.coffee Overpass service](https://overpass.private.coffee/#terms), whose
+     terms permit programmatic access including commercial use. Queries all four
+     sectors: `law_firm`, `medical_practice`, `tax_advisor`, `it_service_provider`.
+     Attribution: © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright),
+     ODbL. Preserve this attribution when sharing OSM-derived discovery data.
+   - For law firms around Karlsruhe, the local association's
+     [public firm listing](https://anwaltsverein-karlsruhe.de/de/ausbildungsbereite-kanzleien).
+     Its public pages/robots were reviewed; no login or member-only search is accessed.
+   - An existing local seed file, when present, as another free source.
+2. `seeds`: owner-maintained JSON such as
+   `[{"website": "https://company.example/"}]`. Optional `company_name`, `city`, and
+   `source_url` are discovery hints, never independently verified facts.
+3. `brave`: **optional enhancement**, only when you already have permitted Brave API
+   access and `DSC_BRAVE_API_KEY`. Missing credentials, network failures, rate limits,
+   and invalid responses fall back to free sources. Normal operation never needs it.
+4. `fixture`: reserved `.example` synthetic evidence, completely offline.
 
-Public company homepages, legal notices, contact/service/team pages and public
-career/partner pages are researched. Sources require operator review of applicable
-terms; robots alone is not a grant of permission. There are no hardcoded scrapers for
-professional directories or social networks. A directory can supply URLs through a
-future permitted adapter, but is never itself a qualified prospect.
+Directory adapters implement the existing typed `DiscoveryProvider` interface and return
+`Candidate` objects. `free_providers.py` supplies reusable aggregation, a cached directory
+client, sector-specific OSM queries, and a local law association adapter. Each source is
+queried once per run, sequentially, with at least five seconds between directory HTTP
+requests. Successful discovery responses are cached for 24 hours in ignored
+`cache/discovery/`; company websites are independently researched afresh. Domain
+normalization deduplicates results before research. Round-robin allocation shares the
+candidate budget between sources, and duplicate entries retain all discovery provenance.
+Source failures are reported as skipped, without retrying or switching hosts to bypass
+restrictions. The command's JSON and SQLite run summary include per-source counts,
+pre-research duplicates, candidate counts, and already-contacted exclusions.
+
+Karlsruhe uses a 35 km radius, covering Karlsruhe, Ettlingen, Rheinstetten, Stutensee,
+Bruchsal, Pfinztal, Waldbronn, Wörth am Rhein, Eggenstein-Leopoldshafen,
+Linkenheim-Hochstetten, Weingarten (Baden), Bretten, Durmersheim, Rastatt, and other nearby
+towns. Other locations use named administrative areas; without a location, discovery
+rotates through the configured German regions. Source coverage varies by sector and city.
+
+Directory entries supply only organization name, website, city and source URL/timestamp.
+Classification, identity, contact route, location, and scoring come from the organization's
+own public homepage, legal notice, contact/service/team or career/partner pages. Directory
+observations are explicitly marked `discovery` and never scored. A directory result cannot
+qualify on its own. Existing shared SQLite identities, suppression and contact history
+remain authoritative across sectors. No delivery, permission or approval is created by
+this workflow.
+
+Public source terms can change: review them before adding adapters or scaling operation.
+Wikidata's query endpoint currently disallows robots, so it is deliberately excluded.
+No search HTML, commercial directory, CAPTCHA, authentication or anti-bot bypass is used.
 
 The HTTP client checks robots before each URL/redirect, fails closed when robots is
 unavailable (404 means no published restrictions), honors crawl delays/request rates,
@@ -71,9 +104,28 @@ eliminate DNS rebinding between lookup and connection.
 Real discovery:
 
 ```bash
-# Add public company URLs to ignored seeds.local.json, or export DSC_BRAVE_API_KEY.
-python -m leadagent discover                       # seeds by default
-python -m leadagent discover --provider brave      # autonomous API discovery + research
+python -m leadagent discover \
+  --provider free \
+  --sector law_firm \
+  --location Karlsruhe \
+  --limit 20
+
+python -m leadagent outreach preview law_firm
+python -m leadagent outreach send law_firm --actor OWNER
+```
+
+The send command is a separate, human-confirmed batch workflow; it still requires the
+configured sending policy, permission basis and confirmation. Discovery sends nothing.
+The SMTP sender remains `kontakt@digitalskills-campus.de` and sent messages retain the
+IMAP Sent copy and crash-safe duplicate-send protections.
+
+Manual free URLs and optional Brave:
+
+```bash
+python -m leadagent discover --sector law_firm --location Karlsruhe \
+  --provider seeds --input seeds.local.karlsruhe.json --limit 20
+# Optional, only with your own permitted Brave key:
+python -m leadagent discover --sector law_firm --location Karlsruhe --provider brave
 python -m leadagent report
 python -m leadagent leads
 python -m leadagent show 1
