@@ -237,6 +237,7 @@ class Database:
                     "postal_code",
                     "city",
                     "country",
+                    "campaign_region",
                     "estimated_company_size",
                     "company_size_evidence",
                     "public_email",

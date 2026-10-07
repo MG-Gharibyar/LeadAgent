@@ -86,6 +86,7 @@ class Lead:
     postal_code: str = ""
     city: str = ""
     country: str = ""
+    campaign_region: str = ""
     estimated_company_size: str = "unknown"
     company_size_evidence: str = ""
     services_detected: list[str] = field(default_factory=list)

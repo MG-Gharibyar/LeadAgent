@@ -129,7 +129,7 @@ def prepare_draft(lead: Lead, kind: str = "initial") -> Lead:
         "Falls Sie keine weitere Nachricht wünschen, genügt eine kurze Antwort."
     )
     if kind == "initial" and lead.segment == Segment.LAW.value:
-        subject, body = render("law_firm", company)
+        subject, body = render("law_firm", company, lead.campaign_region or lead.city)
     lead.draft_subject, lead.draft_text = subject, body
     lead.draft_html = (
         '<!doctype html><html lang="de"><body>'

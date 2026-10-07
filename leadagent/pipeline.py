@@ -112,6 +112,8 @@ def discover(
                         result.duplicates += 1
                         continue
                 lead, aliases = researcher.research(candidate)
+                if config.discovery.location:
+                    lead.campaign_region = config.discovery.location
                 score(lead, config)
                 if (
                     config.discovery.sector

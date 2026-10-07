@@ -99,8 +99,10 @@ def mark_contacted(db: Database, email: str, config: Config, actor: str, notes: 
         contacted(db, lead.id or 0, config, actor, notes)
 
 
-def draft(lead: Lead) -> None:
-    lead.draft_subject, lead.draft_text = render(lead.segment, lead.company_name)
+def draft(lead: Lead, region: str = "") -> None:
+    lead.draft_subject, lead.draft_text = render(
+        lead.segment, lead.company_name, lead.campaign_region or region or lead.city
+    )
     lead.draft_html = (
         "<html><body>" + html.escape(lead.draft_text).replace("\n", "<br>") + "</body></html>"
     )
@@ -160,6 +162,16 @@ def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
         for lead in imported
         if lead.segment.replace("tax_advisory", "tax_advisor") == args.sector
     ]
+    summaries = [
+        json.loads(row[0])
+        for row in db.connection.execute(
+            "SELECT summary FROM runs WHERE summary != '' ORDER BY id DESC"
+        )
+    ]
+    summary: dict[str, Any] = next(
+        (item for item in summaries if item.get("sector", "") in {"", args.sector}), {}
+    )
+    campaign_region = str(summary.get("location") or "")
     pending: list[Lead] = []
     seen: set[int | None] = set()
     already = sum(stopped(lead) for lead in leads)
@@ -173,7 +185,7 @@ def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
             or not email_valid(lead.public_email)
         ):
             continue
-        draft(lead)
+        draft(lead, campaign_region)
         db.save(lead)
         pending.append(lead)
     print(
@@ -188,15 +200,6 @@ def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
             and not stopped(lead)
             and email_valid(lead.public_email)
         }
-    )
-    summaries = [
-        json.loads(row[0])
-        for row in db.connection.execute(
-            "SELECT summary FROM runs WHERE summary != '' ORDER BY id DESC"
-        )
-    ]
-    summary: dict[str, Any] = next(
-        (item for item in summaries if item.get("sector", "") in {"", args.sector}), {}
     )
     print(
         f"Discovered: {summary.get('discovered', 0)}\nDuplicates: {summary.get('duplicates', 0)}\nAlready contacted: {already}\nQualified: {qualified_count}\nPending outreach: {qualified_count}"
