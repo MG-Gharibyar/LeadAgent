@@ -101,6 +101,15 @@ def parser() -> argparse.ArgumentParser:
             )
     batch = mail_sub.add_parser("send-approved")
     batch.add_argument("--live", action="store_true")
+    inbox_commands = sub.add_parser("inbox")
+    inbox_actions = inbox_commands.add_subparsers(dest="inbox_command", required=True)
+    inbox_sync = inbox_actions.add_parser("sync", help="Read IMAP replies; never sends mail")
+    inbox_sync.add_argument("--limit", type=int, default=100)
+    inbox_actions.add_parser("review")
+    inbox_actions.add_parser("stats")
+    inbox_apply = inbox_actions.add_parser("apply")
+    inbox_apply.add_argument("event_id", type=int)
+    inbox_apply.add_argument("--actor", required=True)
     geo_commands = sub.add_parser("geo")
     geo_actions = geo_commands.add_subparsers(dest="geo_command", required=True)
     geo_actions.add_parser("update", help="Download/update the free local GeoNames Germany index")
@@ -135,6 +144,10 @@ def parser() -> argparse.ArgumentParser:
 
 def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
     command = args.command
+    if command == "inbox":
+        from . import inbox as inbox_module
+
+        return inbox_module.dispatch(args, db, config)
     if command == "geo":
         from .geo import update_geo_database
 

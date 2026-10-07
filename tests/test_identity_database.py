@@ -193,7 +193,7 @@ def test_v1_migration_preserves_history_and_aliases(tmp_path):
     alias = synthetic_lead()
     alias.website = "https://alternative.example"
     assert db.upsert(alias)[1] is False
-    assert db.connection.execute("PRAGMA user_version").fetchone()[0] == 4
+    assert db.connection.execute("PRAGMA user_version").fetchone()[0] == 5
     assert db.history(1)[0]["permission_basis"] == "Synthetic basis"
     assert "text_body" in db.history(1)[0]
     db.close()
@@ -262,7 +262,7 @@ def test_v2_sent_copy_migration_preserves_all_history(tmp_path):
     connection.commit()
     connection.close()
     db = Database(path)
-    assert db.connection.execute("PRAGMA user_version").fetchone()[0] == 4
+    assert db.connection.execute("PRAGMA user_version").fetchone()[0] == 5
     assert db.connection.execute("SELECT payload FROM leads").fetchone()[0] == original
     assert db.get(1).suppressed and db.get(1).contact_count == 1
     assert db.history(1)[0]["state"] == "ACCEPTED"

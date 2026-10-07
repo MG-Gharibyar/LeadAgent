@@ -351,7 +351,7 @@ def test_v3_migration_preserves_delivery_identity_and_customer_history(tmp_path)
     old.commit()
     old.close()
     migrated = Database(path)
-    assert migrated.connection.execute("PRAGMA user_version").fetchone()[0] == 4
+    assert migrated.connection.execute("PRAGMA user_version").fetchone()[0] == 5
     current = migrated.get(1)
     assert current.do_not_contact and current.contact_count == 1
     assert current.customer_since == START.isoformat()

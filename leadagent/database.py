@@ -47,6 +47,17 @@ CREATE TABLE IF NOT EXISTS runs (
  id INTEGER PRIMARY KEY, started_at TEXT NOT NULL, completed_at TEXT NOT NULL DEFAULT '',
  provider TEXT NOT NULL, summary TEXT NOT NULL DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS inbox_events (
+ id INTEGER PRIMARY KEY, lead_id INTEGER REFERENCES leads(id),
+ message_id TEXT NOT NULL UNIQUE, imap_uid TEXT NOT NULL DEFAULT '',
+ in_reply_to TEXT NOT NULL DEFAULT '', sender TEXT NOT NULL DEFAULT '',
+ subject TEXT NOT NULL DEFAULT '', received_at TEXT NOT NULL,
+ classification TEXT NOT NULL, confidence REAL NOT NULL DEFAULT 0,
+ summary TEXT NOT NULL DEFAULT '', suggested_status TEXT NOT NULL DEFAULT '',
+ applied_at TEXT NOT NULL DEFAULT '', reviewed_at TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_inbox_lead ON inbox_events(lead_id);
+CREATE INDEX IF NOT EXISTS idx_inbox_classification ON inbox_events(classification);
 """
 
 
@@ -60,7 +71,7 @@ class Database:
         self.connection.execute("PRAGMA journal_mode=WAL")
         self.connection.execute("PRAGMA busy_timeout=30000")
         version = int(self.connection.execute("PRAGMA user_version").fetchone()[0])
-        if version > 4:
+        if version > 5:
             raise ValueError("Database schema is newer than this application")
         if version < 1:
             self.connection.executescript(
@@ -159,6 +170,25 @@ class Database:
                                 "Existing customer schedule initialized",
                             )
                     self.connection.execute("PRAGMA user_version=4")
+
+        if int(self.connection.execute("PRAGMA user_version").fetchone()[0]) < 5:
+            with self.transaction():
+                self.connection.executescript(
+                    """
+                    CREATE TABLE IF NOT EXISTS inbox_events (
+                     id INTEGER PRIMARY KEY, lead_id INTEGER REFERENCES leads(id),
+                     message_id TEXT NOT NULL UNIQUE, imap_uid TEXT NOT NULL DEFAULT '',
+                     in_reply_to TEXT NOT NULL DEFAULT '', sender TEXT NOT NULL DEFAULT '',
+                     subject TEXT NOT NULL DEFAULT '', received_at TEXT NOT NULL,
+                     classification TEXT NOT NULL, confidence REAL NOT NULL DEFAULT 0,
+                     summary TEXT NOT NULL DEFAULT '', suggested_status TEXT NOT NULL DEFAULT '',
+                     applied_at TEXT NOT NULL DEFAULT '', reviewed_at TEXT NOT NULL DEFAULT ''
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_inbox_lead ON inbox_events(lead_id);
+                    CREATE INDEX IF NOT EXISTS idx_inbox_classification ON inbox_events(classification);
+                    """
+                )
+                self.connection.execute("PRAGMA user_version=5")
 
     def close(self) -> None:
         self.connection.close()

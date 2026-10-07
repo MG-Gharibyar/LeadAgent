@@ -218,9 +218,11 @@ python -m leadagent customer 1 --actor 'Hasib Gharibyar'
 One initial contact, one follow-up at most, ten days minimum by default. Follow-ups require
 confirmed initial SMTP acceptance or recorded external contact and their own approval.
 Responses stop automatic follow-ups. Rejection, opt-out and customer flags permanently
-suppress outreach. No further message follows an unanswered follow-up. Email replies and
-bounces are not ingested automatically in v1: the owner must record them before another
-send. Contact forms require manual written review; there is no automatic form submission.
+suppress outreach. No further message follows an unanswered follow-up. Email replies and bounces can be synchronized read-only from the same Netcup IMAP mailbox.
+Synchronization never invokes SMTP. High-confidence opt-outs, explicit rejections and
+bounces update suppression/delivery state immediately; positive or ambiguous replies are
+recorded for review before an INTERESTED state is applied. Contact forms still require
+manual written review; there is no automatic form submission.
 
 ## Daily operation and data safety
 
@@ -312,3 +314,20 @@ python -m leadagent discover --provider free --sector law_firm \
 `--area CITY:RADIUS_KM` is repeatable. Normal discovery then uses the local GeoNames
 index and Haversine distance; no paid geocoder is required. Overlapping areas are
 deduplicated and the nearest matching campaign center becomes the wording region.
+
+
+### Inbox synchronization and reply tracking
+
+```bash
+python -m leadagent inbox sync
+python -m leadagent inbox stats
+python -m leadagent inbox review
+python -m leadagent inbox apply EVENT_ID --actor OWNER
+```
+
+`inbox sync` reads up to the configured recent-message limit from INBOX over IMAP and
+never sends mail. It matches threads by `In-Reply-To`/`References` against stored
+delivery Message-IDs, then falls back to known sender/domain identity. Deterministic rules
+classify opt-outs, rejections, information requests, meeting requests, bounces and
+out-of-office messages. Ambiguous replies remain review items. Duplicate Message-IDs are
+idempotently ignored.
