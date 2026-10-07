@@ -87,6 +87,12 @@ class Lead:
     city: str = ""
     country: str = ""
     campaign_region: str = ""
+    latitude: float | None = None
+    longitude: float | None = None
+    distance_km: float | None = None
+    search_areas: list[str] = field(default_factory=list)
+    location_resolution_source: str = ""
+    location_review_required: bool = False
     estimated_company_size: str = "unknown"
     company_size_evidence: str = ""
     services_detected: list[str] = field(default_factory=list)

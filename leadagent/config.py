@@ -17,6 +17,8 @@ class DiscoveryConfig:
     provider: str = "free"
     seeds_file: str = "seeds.local.json"
     cache_directory: str = "cache/discovery"
+    geo_database: str = "data/geonames-de.json"
+    areas: list[str] = field(default_factory=list)
     maximum_candidates: int = 80
     maximum_pages_per_company: int = 5
     request_interval_seconds: float = 2
@@ -163,6 +165,7 @@ class Config:
             self.discovery.allowed_hosts,
             self.discovery.queries,
             self.discovery.query_regions,
+            self.discovery.areas,
         ):
             if not isinstance(value, list) or any(not isinstance(x, str) for x in value):
                 raise ValueError("Discovery hosts and queries must be string lists")
@@ -184,6 +187,7 @@ class Config:
             self.report_directory,
             self.discovery.seeds_file,
             self.discovery.cache_directory,
+            self.discovery.geo_database,
         ):
             if not isinstance(value, str) or not value.strip():
                 raise ValueError("Paths must be nonempty strings")

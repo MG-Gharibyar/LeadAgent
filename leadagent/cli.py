@@ -39,7 +39,13 @@ def parser() -> argparse.ArgumentParser:
     )
     discovery.add_argument("--sector", choices=list(SECTORS))
     discovery.add_argument(
-        "--location", help="Search focus, e.g. Karlsruhe and its surrounding region"
+        "--location", help="City/region focus; for exact radii prefer --area"
+    )
+    discovery.add_argument(
+        "--area",
+        action="append",
+        default=[],
+        help='Repeatable CITY:RADIUS_KM, e.g. --area "Karlsruhe:50"',
     )
     discovery.add_argument("--limit", type=int, help="Bound this discovery run")
     discovery.add_argument("--provider", choices=["free", "seeds", "brave", "fixture"])
@@ -95,6 +101,9 @@ def parser() -> argparse.ArgumentParser:
             )
     batch = mail_sub.add_parser("send-approved")
     batch.add_argument("--live", action="store_true")
+    geo_commands = sub.add_parser("geo")
+    geo_actions = geo_commands.add_subparsers(dest="geo_command", required=True)
+    geo_actions.add_parser("update", help="Download/update the free local GeoNames Germany index")
     customer_commands = sub.add_parser("customers")
     customer_actions = customer_commands.add_subparsers(dest="customers_command", required=True)
     for name in ("list", "due", "preview", "send"):
@@ -126,6 +135,12 @@ def parser() -> argparse.ArgumentParser:
 
 def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
     command = args.command
+    if command == "geo":
+        from .geo import update_geo_database
+
+        count = update_geo_database(config.discovery.geo_database)
+        print(f"GeoNames Germany: {count} aliases -> {config.discovery.geo_database}")
+        return 0
     if command == "customers":
         return customers.dispatch(args, db, config)
     if command == "outreach":
@@ -137,10 +152,10 @@ def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
             config.discovery.seeds_file = args.input
         if args.limit is not None:
             config.discovery.maximum_candidates = args.limit
-        if args.sector or args.location:
+        if args.sector or args.location or args.area:
             from .sectors import configure_search
 
-            configure_search(config.discovery, args.sector, args.location)
+            configure_search(config.discovery, args.sector, args.location, args.area)
             if not args.provider and not args.input:
                 config.discovery.provider = "free"
         config.validate()

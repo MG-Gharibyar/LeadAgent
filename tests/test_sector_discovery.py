@@ -222,3 +222,11 @@ def test_public_law_firm_digital_and_location_claims_are_not_windows_inferences(
     assert any(e.kind == "digital" and e.value == "client_portal" for e in evidence)
     assert any(e.kind == "intent" and e.value == "multiple_locations" for e in evidence)
     assert not any(e.kind == "technology" for e in evidence)
+
+
+def test_area_search_builds_city_queries():
+    config = DiscoveryConfig()
+    configure_search(config, "law_firm", None, ["Karlsruhe:50", "Stuttgart:30"])
+    assert config.areas == ["Karlsruhe:50", "Stuttgart:30"]
+    assert any("Karlsruhe" in query for query in config.queries)
+    assert any("Stuttgart" in query for query in config.queries)

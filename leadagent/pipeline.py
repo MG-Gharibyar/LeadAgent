@@ -34,6 +34,8 @@ class RunResult:
     candidates_found: int = 0
     discovery_sources: dict[str, dict[str, str | int]] = field(default_factory=dict)
     directory_duplicates: int = 0
+    out_of_area: int = 0
+    location_review_required: int = 0
 
 
 def select_new(
@@ -58,6 +60,7 @@ def select_new(
             and lead.final_score >= config.minimum_score
             and lead.recommended_dsc_service
             and lead.country == "Germany"
+            and not lead.location_review_required
         ]
         # Quality wins. Distribution preferences only break ties at the same score.
         segment_count: dict[str, int] = {}
@@ -95,6 +98,13 @@ def discover(
     assert run_id is not None
     result = RunResult(run_id, 0, 0, 0, [])
     researched_ids: set[int] = set()
+    geo_index = None
+    area_specs = []
+    if config.discovery.areas:
+        from .geo import GeoIndex, resolve_areas
+
+        geo_index = GeoIndex(config.discovery.geo_database)
+        area_specs = resolve_areas(config.discovery.areas, geo_index)
     try:
         for index, candidate in enumerate(provider.discover(config.discovery.maximum_candidates)):
             if index >= config.discovery.maximum_candidates:
@@ -112,7 +122,16 @@ def discover(
                         result.duplicates += 1
                         continue
                 lead, aliases = researcher.research(candidate)
-                if config.discovery.location:
+                if area_specs and geo_index is not None:
+                    from .geo import apply_area_match
+
+                    area_state = apply_area_match(lead, area_specs, geo_index)
+                    if area_state == "OUTSIDE":
+                        result.out_of_area += 1
+                        continue
+                    if area_state == "REVIEW":
+                        result.location_review_required += 1
+                elif config.discovery.location:
                     lead.campaign_region = config.discovery.location
                 score(lead, config)
                 if (
@@ -144,7 +163,9 @@ def discover(
             db,
             config,
             day,
-            researched_ids if config.discovery.sector or config.discovery.location else None,
+            researched_ids
+            if config.discovery.sector or config.discovery.location or config.discovery.areas
+            else None,
         )
     finally:
         result.discovery_sources = getattr(provider, "source_results", {})
@@ -159,6 +180,7 @@ def discover(
                         "qualified": len(result.qualified_ids),
                         "sector": config.discovery.sector,
                         "location": config.discovery.location,
+                        "areas": config.discovery.areas,
                     }
                 ),
                 run_id,

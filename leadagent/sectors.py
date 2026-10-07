@@ -28,15 +28,27 @@ SEARCH_TERMS = {
 }
 
 
-def configure_search(config: DiscoveryConfig, sector: str | None, location: str | None) -> None:
+def configure_search(
+    config: DiscoveryConfig,
+    sector: str | None,
+    location: str | None,
+    areas: list[str] | None = None,
+) -> None:
     config.sector = sector or ""
+    config.areas = list(areas or [])
     config.location = (location or "").strip()
     locations = (
-        list(KARLSRUHE_REGION) if config.location.casefold() == "karlsruhe" else [config.location]
+        [area.rsplit(":", 1)[0].strip() for area in config.areas]
+        if config.areas
+        else (
+            list(KARLSRUHE_REGION)
+            if config.location.casefold() == "karlsruhe"
+            else [config.location]
+        )
     )
     terms = [SEARCH_TERMS[sector]] if sector else list(SEARCH_TERMS.values())
     config.queries = [f"{term} {city}".strip() for city in locations for term in terms]
-    if config.location.casefold() == "karlsruhe":
+    if config.location.casefold() == "karlsruhe" and not config.areas:
         # Include a regional query, so results aren't confined to the example towns.
         config.queries.insert(1, f"{terms[0]} Region Karlsruhe Umgebung 35 km")
     config.query_regions = []  # Explicit location replaces the daily nationwide rotation.

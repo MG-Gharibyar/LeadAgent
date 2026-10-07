@@ -79,68 +79,82 @@ class OpenStreetMapDirectory:
     def __init__(self, config: DiscoveryConfig, client: DirectoryClient) -> None:
         self.config, self.client = config, client
 
-    def discover(self, limit: int) -> Iterable[Candidate]:
-        # One regional query covers all requested towns and additional nearby towns.
+    def _scopes(self) -> list[tuple[str, str]]:
+        if self.config.areas:
+            from .geo import GeoIndex, resolve_areas
+
+            index = GeoIndex(self.config.geo_database)
+            return [
+                ("", f"(around:{int(area.radius_km * 1000)},{area.latitude},{area.longitude})")
+                for area in resolve_areas(self.config.areas, index)
+            ]
         if self.config.location.casefold() == "karlsruhe":
-            prefix, scope = "", "(around:35000,49.0069,8.4037)"
-        else:
-            city = self.config.location
-            if not city:
-                regions = self.config.query_regions or ["Berlin"]
-                city = regions[int(time.time() // 86400) % len(regions)]
-            prefix = f'area["boundary"="administrative"]["name"={json.dumps(city, ensure_ascii=False)}]->.a;'
-            scope = "(area.a)"
+            return [("", "(around:35000,49.0069,8.4037)")]
+        city = self.config.location
+        if not city:
+            regions = self.config.query_regions or ["Berlin"]
+            city = regions[int(time.time() // 86400) % len(regions)]
+        prefix = f'area["boundary"="administrative"]["name"={json.dumps(city, ensure_ascii=False)}]->.a;'
+        return [(prefix, "(area.a)")]
+
+    def discover(self, limit: int) -> Iterable[Candidate]:
         filters = (
             OSM_FILTERS[self.config.sector]
             if self.config.sector
             else [f for values in OSM_FILTERS.values() for f in values]
         )
-        selections = "".join(f"nwr{f}{scope};" for f in filters)
-        query = f"[out:json][timeout:20][maxsize:16777216];{prefix}({selections});out tags 500;"
-        page = None
-        last_error: OSError | None = None
-        for endpoint in (
-            "https://overpass.private.coffee/api/interpreter",
-            "https://overpass-api.de/api/interpreter",
-        ):
-            url = endpoint + "?" + urlencode({"data": query})
-            try:
-                page = self.client.fetch(url)
-                break
-            except OSError as exc:
-                # Availability failure only. AccessDenied is a ValueError and is not bypassed.
-                last_error = exc
-        if page is None:
-            if last_error:
-                raise last_error
-            raise ValueError("No Overpass endpoint available")
-        data = json.loads(page.text)
-        if data.get("remark"):
-            raise ValueError("Incomplete directory response")
         count = 0
-        for item in data.get("elements", []):
-            tags = item.get("tags", {})
-            website = tags.get("website") or tags.get("contact:website") or ""
-            if website and not website.startswith(("http://", "https://")):
-                website = "https://" + website
-            if (
-                not website
-                or not tags.get("name")
-                or item.get("type") not in {"node", "way", "relation"}
+        seen_domains: set[str] = set()
+        for prefix, scope in self._scopes():
+            selections = "".join(f"nwr{f}{scope};" for f in filters)
+            query = f"[out:json][timeout:20][maxsize:16777216];{prefix}({selections});out tags 500;"
+            page = None
+            last_error: OSError | None = None
+            for endpoint in (
+                "https://overpass.private.coffee/api/interpreter",
+                "https://overpass-api.de/api/interpreter",
             ):
-                continue
-            if not isinstance(item.get("id"), int):
-                continue
-            yield Candidate(
-                tags["name"],
-                website,
-                f"https://www.openstreetmap.org/{item['type']}/{item['id']}",
-                page.retrieved_at,
-                tags.get("addr:city", ""),
-            )
-            count += 1
-            if count >= limit:
-                break
+                url = endpoint + "?" + urlencode({"data": query})
+                try:
+                    page = self.client.fetch(url)
+                    break
+                except OSError as exc:
+                    # Availability failure only. AccessDenied is a ValueError and is not bypassed.
+                    last_error = exc
+            if page is None:
+                if last_error:
+                    raise last_error
+                raise ValueError("No Overpass endpoint available")
+            data = json.loads(page.text)
+            if data.get("remark"):
+                raise ValueError("Incomplete directory response")
+            for item in data.get("elements", []):
+                tags = item.get("tags", {})
+                website = tags.get("website") or tags.get("contact:website") or ""
+                if website and not website.startswith(("http://", "https://")):
+                    website = "https://" + website
+                if (
+                    not website
+                    or not tags.get("name")
+                    or item.get("type") not in {"node", "way", "relation"}
+                ):
+                    continue
+                if not isinstance(item.get("id"), int):
+                    continue
+                domain = normalize_domain(website)
+                if not domain or domain in seen_domains:
+                    continue
+                seen_domains.add(domain)
+                yield Candidate(
+                    tags["name"],
+                    website,
+                    f"https://www.openstreetmap.org/{item['type']}/{item['id']}",
+                    page.retrieved_at,
+                    tags.get("addr:city", ""),
+                )
+                count += 1
+                if count >= limit:
+                    return
 
 
 class LawAssociationDirectory:

@@ -18,6 +18,8 @@ segments:
 discovery:
   provider: free
   seeds_file: seeds.local.json
+  geo_database: data/geonames-de.json
+  areas: []
   maximum_candidates: 80
   maximum_pages_per_company: 5
   request_interval_seconds: 2

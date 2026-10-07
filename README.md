@@ -296,3 +296,19 @@ Schema v4 preserves acquisition deliveries, identity aliases, suppression and au
 history. Existing customers receive an initial 90-day schedule based on their recorded
 CUSTOMER event (migration time if none exists); running the migration again does not
 reset the schedule.
+
+
+### Exact multi-city radius discovery
+
+For exact radii around arbitrary German cities, initialize the free local GeoNames index once:
+
+```bash
+python -m leadagent geo update
+python -m leadagent discover --provider free --sector law_firm --area "Karlsruhe:50" --limit 20
+python -m leadagent discover --provider free --sector law_firm \
+  --area "Karlsruhe:50" --area "Stuttgart:30" --limit 40
+```
+
+`--area CITY:RADIUS_KM` is repeatable. Normal discovery then uses the local GeoNames
+index and Haversine distance; no paid geocoder is required. Overlapping areas are
+deduplicated and the nearest matching campaign center becomes the wording region.
