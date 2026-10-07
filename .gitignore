@@ -22,3 +22,7 @@ cache/
 *.log
 credentials*
 seeds.local.*
+
+.sent_outreach.json
+OutReach/*.json
+OutReach/data/

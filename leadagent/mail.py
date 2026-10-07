@@ -15,6 +15,9 @@ from .database import Database
 from .models import Lead, Status, instant, utcnow
 from .outreach import STOP_STATUSES, draft_hash, followup_due, record_contact
 
+FROM_EMAIL = "kontakt@digitalskills-campus.de"
+SMTP_USER = "kontakt@digitalskills-campus.de"
+
 
 @dataclass
 class SMTPSettings:
@@ -28,23 +31,25 @@ class SMTPSettings:
 
     @classmethod
     def from_environment(cls) -> SMTPSettings:
-        host = os.environ.get("DSC_SMTP_HOST", "")
-        security = os.environ.get("DSC_SMTP_SECURITY", "starttls")
+        host = os.environ.get("DSC_SMTP_HOST", "mxe9aa.netcup.net")
+        security = os.environ.get("DSC_SMTP_SECURITY", "ssl")
         if not host or security not in {"starttls", "ssl"}:
             raise ValueError("Live mail requires SMTP host and TLS (starttls or ssl)")
         settings = cls(
             host,
-            int(os.environ.get("DSC_SMTP_PORT", "587")),
-            os.environ.get("DSC_SMTP_USERNAME", ""),
+            int(os.environ.get("DSC_SMTP_PORT", "465")),
+            os.environ.get("DSC_SMTP_USERNAME", SMTP_USER),
             os.environ.get("DSC_SMTP_PASSWORD", ""),
             security,
             os.environ.get("DSC_FROM_EMAIL", "kontakt@digitalskills-campus.de"),
-            os.environ.get("DSC_FROM_NAME", "Digital Skills Campus"),
+            os.environ.get("DSC_FROM_NAME", "Hasib Gharibyar | Digital Skills Campus"),
         )
         if not 1 <= settings.port <= 65535:
             raise ValueError("Invalid SMTP port")
         if not settings.username or not settings.password:
             raise ValueError("SMTP authentication credentials are required")
+        if settings.username != SMTP_USER:
+            raise ValueError("SMTP user must be kontakt@digitalskills-campus.de")
         if settings.from_email != "kontakt@digitalskills-campus.de":
             raise ValueError("v1 sender must be kontakt@digitalskills-campus.de")
         if any(c in settings.from_name for c in "\r\n"):
@@ -69,8 +74,11 @@ def build_message(lead: Lead, settings: SMTPSettings | None = None) -> EmailMess
         raise ValueError("Invalid subject")
     message = EmailMessage()
     sender = settings.from_email if settings else "kontakt@digitalskills-campus.de"
-    name = settings.from_name if settings else "Digital Skills Campus"
+    name = settings.from_name if settings else "Hasib Gharibyar | Digital Skills Campus"
     message["From"] = formataddr((name, sender))
+    if sender != FROM_EMAIL:
+        raise ValueError("Sender must be kontakt@digitalskills-campus.de")
+    message["Reply-To"] = FROM_EMAIL
     message["To"] = lead.public_email
     message["Subject"] = lead.draft_subject
     message["Message-ID"] = make_msgid(domain="digitalskills-campus.de")
@@ -141,7 +149,7 @@ def smtp_transport(settings: SMTPSettings, message: EmailMessage) -> None:
             client.starttls(context=context)
             client.ehlo()
         client.login(settings.username, settings.password)
-        refused = client.send_message(message)
+        refused = client.send_message(message, from_addr=FROM_EMAIL, to_addrs=[str(message["To"])])
         if refused:
             raise smtplib.SMTPRecipientsRefused(refused)
     finally:

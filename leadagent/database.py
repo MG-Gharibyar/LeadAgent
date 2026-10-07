@@ -141,6 +141,9 @@ class Database:
         lead.normalized_company_name = normalize_name(lead.company_name)
         key = company_key(lead.company_name, lead.city)
         domains = [(lead.normalized_domain, lead.website)]
+        if lead.public_email and "@" in lead.public_email:
+            email_domain = normalize_domain(lead.public_email.rsplit("@", 1)[1])
+            domains.append((email_domain, lead.website))
         domains.extend((normalize_domain(d), source) for d, source in aliases or [])
         with self.transaction():
             ids = set()

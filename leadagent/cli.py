@@ -7,7 +7,9 @@ import sqlite3
 import sys
 from dataclasses import asdict
 from datetime import UTC, datetime
+from pathlib import Path
 
+from . import batch_outreach
 from .config import Config, load_config
 from .database import Database
 from .logging import configure_logging
@@ -18,6 +20,7 @@ from .pipeline import discover
 from .providers import provider_from_config
 from .report import generate_report
 from .research import Researcher
+from .templates import SECTORS
 from .web import PublicWebClient
 
 
@@ -86,11 +89,29 @@ def parser() -> argparse.ArgumentParser:
             )
     batch = mail_sub.add_parser("send-approved")
     batch.add_argument("--live", action="store_true")
+    outreach = sub.add_parser("outreach")
+    actions = outreach.add_subparsers(dest="outreach_command", required=True)
+    for name in ("preview", "send"):
+        command = actions.add_parser(name)
+        command.add_argument("sector", choices=list(SECTORS))
+        command.add_argument(
+            "--input", help="Legacy or factual lead JSON; otherwise use stored leads"
+        )
+        if name == "send":
+            command.add_argument("--actor", required=True, help="Human confirming this batch")
+    actions.add_parser("history")
+    actions.add_parser("pending")
+    manual = actions.add_parser("mark-contacted")
+    manual.add_argument("email")
+    manual.add_argument("--actor", required=True)
+    manual.add_argument("--notes", required=True)
     return root
 
 
 def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
     command = args.command
+    if command == "outreach":
+        return batch_outreach.dispatch(args, db, config)
     if command == "discover":
         if args.provider:
             config.discovery.provider = args.provider
@@ -200,6 +221,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         config = load_config(args.config)
         db = Database(args.database or config.database)
+        batch_outreach.migrate_sent(
+            db, [Path("OutReach/.sent_outreach.json"), Path(".sent_outreach.json")], config
+        )
         return dispatch(args, db, config)
     except (ValueError, OSError, sqlite3.Error) as exc:
         # File/API exceptions can contain private URLs or query data. Limit their details.

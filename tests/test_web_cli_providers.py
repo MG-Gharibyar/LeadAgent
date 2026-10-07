@@ -118,7 +118,8 @@ def test_search_requires_api_key(monkeypatch):
         list(BraveSearchProvider(DiscoveryConfig()).discover(20))
 
 
-def test_cli_end_to_end(tmp_path, capsys):
+def test_cli_end_to_end(tmp_path, capsys, monkeypatch):
+    monkeypatch.chdir(tmp_path)
     fixture = tmp_path / "fixtures.json"
     fixture.write_text(json.dumps([synthetic_lead().to_dict()]))
     config = tmp_path / "config.yaml"
