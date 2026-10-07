@@ -95,8 +95,7 @@ class OpenStreetMapDirectory:
             regions = self.config.query_regions or ["Berlin"]
             city = regions[int(time.time() // 86400) % len(regions)]
         prefix = (
-            f'area["boundary"="administrative"]["name"='
-            f'{json.dumps(city, ensure_ascii=False)}]->.a;'
+            f'area["boundary"="administrative"]["name"={json.dumps(city, ensure_ascii=False)}]->.a;'
         )
         return [(prefix, "(area.a)")]
 
