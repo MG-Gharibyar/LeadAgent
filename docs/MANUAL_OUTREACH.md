@@ -40,10 +40,15 @@ For a manually reviewed lead, provide:
 - `email`: public business email address
 - `website`: explicit public organization website
 - `city`: office city
+- `sector`: one supported outreach sector
 - `source_url`: public page used during manual review, preferably contact/imprint
-- `manual_reviewed: true`: either on each lead or once in the campaign object
+- optional `public_observation`: the sourced fact used for personalization
+- optional `suggested_service`
+- optional `email_subject` and `email_body` for an owner-reviewed individual draft
+- `manual_reviewed: true`: either on each lead or once in the campaign object, **or**
+  use the explicit CLI gate `--review-input`
 - campaign `region`: the metro wording used in outreach, e.g. `Stuttgart`
-- `reviewed_by`: the human reviewer, normally `OWNER`
+- `reviewed_by`: the human reviewer, or use `--reviewed-by` / the send `--actor`
 
 The import records this as a manual human review. It does **not** invent recipient consent.
 The final batch confirmation records `PUBLIC_BUSINESS_OUTREACH` as the operational basis
@@ -135,15 +140,22 @@ python3 -m leadagent outreach send law_firm \
   --region Mannheim --max 20 --actor OWNER
 ```
 
-Supported sectors are:
+Supported manual-outreach sectors are:
 
 - `law_firm`
 - `medical_practice`
 - `tax_advisor`
 - `it_service_provider`
+- `manufacturing_industry`
+- `electrical_engineering`
+- `logistics`
+- `property_management`
+- `technical_trade`
 
-The same SMTP, Sent-copy, deduplication, suppression, inbox and customer-history logic is
-shared across all sectors.
+Automatic discovery remains intentionally limited to the original four research sectors.
+The additional SME sectors are supported through factual/manual JSON outreach. The same
+SMTP, Sent-copy, deduplication, suppression, inbox and customer-history logic is shared
+across all sectors.
 
 ## 6. Data safety
 
@@ -156,3 +168,41 @@ backup method.
 
 The automated `discover` subsystem is optional. If a third-party directory or public API
 returns `AccessDenied`, that does not block this manual JSON workflow.
+
+
+## 7. Mixed-sector Karlsruhe batch
+
+One private JSON file may contain several sectors. Use `all` only together with an
+explicit `--input` file. This is intentionally rejected without `--input`, so the command
+cannot accidentally collect every pending lead from the production database.
+
+For the current Karlsruhe SME file:
+
+```bash
+python3 -m leadagent outreach preview all \
+  --input data/karlsruhe_mittelstand_20_outreach.json \
+  --region Karlsruhe \
+  --max 20 \
+  --review-input \
+  --reviewed-by "Hasib Gharibyar"
+```
+
+This imports only the supplied file, checks the persistent SQLite identity/contact history,
+keeps existing suppression/contact records authoritative, preserves the per-lead
+`email_subject` / `email_body`, and sends nothing.
+
+After reviewing the exact 20-message preview:
+
+```bash
+python3 -m leadagent outreach send all \
+  --input data/karlsruhe_mittelstand_20_outreach.json \
+  --region Karlsruhe \
+  --max 20 \
+  --review-input \
+  --actor "Hasib Gharibyar"
+```
+
+The command prints the final sendable subset and still requires the literal `JA`
+confirmation before SMTP starts. Previously contacted, suppressed, rejected, opted-out,
+customer or otherwise blocked identities remain excluded. A public business address is
+recorded as `PUBLIC_BUSINESS_OUTREACH`, not as recipient consent.
