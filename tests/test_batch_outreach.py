@@ -469,3 +469,58 @@ def test_reimport_keeps_contact_history_for_new_sectors(db, config, tmp_path):
     assert repeated[0].id == imported[0].id
     assert stopped(repeated[0])
     assert len(db.history(repeated[0].id or 0)) == 1
+
+
+def test_mixed_sector_all_preview_is_single_safe_batch(db, config, tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    path = tmp_path / "mixed.json"
+    path.write_text(
+        json.dumps(
+            {
+                "leads": [
+                    {
+                        "company": "Synthetic Produktion GmbH",
+                        "email": "info@produktion.example",
+                        "website": "https://produktion.example/",
+                        "city": "Karlsruhe",
+                        "sector": "manufacturing_industry",
+                        "source_url": "https://produktion.example/kontakt",
+                        "public_observation": "Produziert Präzisionsteile.",
+                        "email_subject": "Produktion Security",
+                        "email_body": "Individuelle Beratung Produktion",
+                    },
+                    {
+                        "company": "Synthetic Logistik GmbH",
+                        "email": "info@logistik.example",
+                        "website": "https://logistik.example/",
+                        "city": "Karlsruhe",
+                        "sector": "logistics",
+                        "source_url": "https://logistik.example/kontakt",
+                        "public_observation": "Bietet Logistikleistungen.",
+                        "email_subject": "Logistik Security",
+                        "email_body": "Individuelle Beratung Logistik",
+                    },
+                ]
+            }
+        )
+    )
+    args = arguments(
+        "preview",
+        "all",
+        str(path),
+        "Karlsruhe",
+        review_input=True,
+        reviewed_by="Hasib Gharibyar",
+    )
+    assert dispatch(args, db, config) == 0
+    output = capsys.readouterr().out
+    assert "Gesamt: 2" in output
+    assert "Pending outreach: 2" in output
+    assert "Individuelle Beratung Produktion" in output
+    assert "Individuelle Beratung Logistik" in output
+    assert {lead.segment for lead in db.all()} == {"manufacturing_industry", "logistics"}
+
+
+def test_mixed_sector_all_requires_explicit_input(db, config):
+    with pytest.raises(ValueError, match="requires an explicit --input"):
+        dispatch(arguments("preview", "all"), db, config)
