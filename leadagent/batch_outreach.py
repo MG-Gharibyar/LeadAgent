@@ -178,9 +178,7 @@ def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
         raise ValueError("Invalid campaign region")
     if requested_region:
         leads = [
-            lead
-            for lead in leads
-            if lead.campaign_region.casefold() == requested_region.casefold()
+            lead for lead in leads if lead.campaign_region.casefold() == requested_region.casefold()
         ]
     max_count = getattr(args, "max_count", None)
     if max_count is not None and (type(max_count) is not int or max_count < 1):
