@@ -173,6 +173,18 @@ def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
         for lead in imported
         if lead.segment.replace("tax_advisory", "tax_advisor") == args.sector
     ]
+    requested_region = str(getattr(args, "region", "") or "").strip()
+    if any(c in requested_region for c in "\r\n"):
+        raise ValueError("Invalid campaign region")
+    if requested_region:
+        leads = [
+            lead
+            for lead in leads
+            if lead.campaign_region.casefold() == requested_region.casefold()
+        ]
+    max_count = getattr(args, "max_count", None)
+    if max_count is not None and (type(max_count) is not int or max_count < 1):
+        raise ValueError("--max must be a positive integer")
     summaries = [
         json.loads(row[0])
         for row in db.connection.execute(
@@ -182,7 +194,7 @@ def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
     summary: dict[str, Any] = next(
         (item for item in summaries if item.get("sector", "") in {"", args.sector}), {}
     )
-    campaign_region = str(summary.get("location") or "")
+    campaign_region = requested_region or str(summary.get("location") or "")
     pending: list[Lead] = []
     seen: set[int | None] = set()
     already = sum(stopped(lead) for lead in leads)
@@ -199,8 +211,15 @@ def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
         draft(lead, campaign_region)
         db.save(lead)
         pending.append(lead)
+    if max_count is not None:
+        pending = pending[:max_count]
     print(
-        f"Sektor: {args.sector}\nGesamt: {len(leads)}\nBereits kontaktiert/gesperrt: {already}\nÜbersprungen: {len(leads) - len(pending)}\nOffen: {len(pending)}"
+        f"Sektor: {args.sector}"
+        f"{f' | Region: {requested_region}' if requested_region else ''}\n"
+        f"Gesamt: {len(leads)}\n"
+        f"Bereits kontaktiert/gesperrt: {already}\n"
+        f"Übersprungen/nicht im Batch: {len(leads) - len(pending)}\n"
+        f"Offen im Batch: {len(pending)}"
     )
     qualified_count = len(
         {
@@ -213,7 +232,7 @@ def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
         }
     )
     print(
-        f"Discovered: {summary.get('discovered', 0)}\nDuplicates: {summary.get('duplicates', 0)}\nAlready contacted: {already}\nQualified: {qualified_count}\nPending outreach: {qualified_count}"
+        f"Discovered: {summary.get('discovered', 0)}\nDuplicates: {summary.get('duplicates', 0)}\nAlready contacted: {already}\nQualified: {qualified_count}\nPending outreach in this batch: {len(pending)}"
     )
     for lead in pending:
         print(

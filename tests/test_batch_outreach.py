@@ -15,8 +15,15 @@ from leadagent.mail import FROM_EMAIL, SMTPSettings, build_message, smtp_transpo
 from leadagent.templates import SECTORS, render
 
 
-def arguments(action, sector="law_firm", path=None):
-    return argparse.Namespace(outreach_command=action, sector=sector, input=path, actor="reviewer")
+def arguments(action, sector="law_firm", path=None, region="", max_count=None):
+    return argparse.Namespace(
+        outreach_command=action,
+        sector=sector,
+        input=path,
+        actor="reviewer",
+        region=region,
+        max_count=max_count,
+    )
 
 
 def fixture(path, rows):
@@ -180,3 +187,46 @@ def test_failed_batch_is_not_accepted_or_retried(db, config, qualified, tmp_path
         assert not db.get(qualified.id).initial_delivery_confirmed
         assert dispatch(arguments("send"), db, config) == 0
         confirm.assert_called_once()
+
+
+def test_batch_region_and_max_filter(db, config, tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    rows = [
+        {
+            "company": "Stuttgart One",
+            "email": "info@stuttgart-one.example",
+            "website": "https://stuttgart-one.example",
+            "sector": "law_firm",
+        },
+        {
+            "company": "Stuttgart Two",
+            "email": "info@stuttgart-two.example",
+            "website": "https://stuttgart-two.example",
+            "sector": "law_firm",
+        },
+        {
+            "company": "Karlsruhe One",
+            "email": "info@karlsruhe-one.example",
+            "website": "https://karlsruhe-one.example",
+            "sector": "law_firm",
+        },
+    ]
+    imported = import_leads(
+        db,
+        fixture(tmp_path / "regional.json", rows),
+        "law_firm",
+        config,
+    )
+    for lead in imported:
+        lead.segment = "law_firm"
+        lead.campaign_region = "Stuttgart" if "Stuttgart" in lead.company_name else "Karlsruhe"
+        lead.qualified_at = "2026-10-08T00:00:00+00:00"
+        lead.final_score = config.minimum_score
+        db.save(lead)
+
+    assert dispatch(arguments("preview", region="Stuttgart", max_count=1), db, config) == 0
+    output = capsys.readouterr().out
+    assert "Region: Stuttgart" in output
+    assert "Stuttgart One" in output
+    assert "Karlsruhe One" not in output
+    assert "Pending outreach in this batch: 1" in output

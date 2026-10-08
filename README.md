@@ -342,3 +342,18 @@ public source URL and the named owner actor. Existing `PROHIBITED`, opt-out, sup
 customer, response, duplicate-contact, stale-evidence and rate-limit gates remain in force.
 This is an audit state describing how the contact was selected; it is not represented as
 recipient consent.
+
+
+### Region-scoped outreach batches
+
+After discovery, preview and send a campaign without mixing pending leads from other
+cities:
+
+```bash
+python -m leadagent outreach preview law_firm --region Stuttgart --max 20
+python -m leadagent outreach send law_firm --region Stuttgart --max 20 --actor OWNER
+```
+
+`--region` matches the stored campaign center (for example Stuttgart even when the
+individual office is in a nearby municipality), and `--max` caps the displayed and
+confirmed batch. The final `JA` confirmation is still required before SMTP is used.

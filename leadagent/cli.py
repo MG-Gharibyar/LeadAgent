@@ -125,6 +125,17 @@ def parser() -> argparse.ArgumentParser:
         command.add_argument(
             "--input", help="Legacy or factual lead JSON; otherwise use stored leads"
         )
+        command.add_argument(
+            "--region",
+            default="",
+            help="Only this campaign region, e.g. Stuttgart",
+        )
+        command.add_argument(
+            "--max",
+            dest="max_count",
+            type=int,
+            help="Maximum number of messages in this preview/send batch",
+        )
         if name == "send":
             command.add_argument("--actor", required=True, help="Human confirming this batch")
     actions.add_parser("history")
