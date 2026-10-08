@@ -69,7 +69,7 @@ def test_templates_and_dry_run(sector, db, config, tmp_path, monkeypatch, capsys
         "logistics": "Transport und Logistik",
         "property_management": "Immobilienverwaltung",
         "technical_trade": "technischem Handel",
-        "fitness_studio": "digitale Mitgliederverwaltung",
+        "fitness_studio": "digitaler Mitgliederverwaltung",
     }[sector] in body
 
 
