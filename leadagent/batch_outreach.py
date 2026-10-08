@@ -13,8 +13,8 @@ from .config import Config
 from .database import Database
 from .identity import normalize_domain
 from .mail import Mailer, blockers, contacted, email_valid
-from .models import Lead
-from .outreach import approve, draft_hash, initial_contacted
+from .models import Lead, Permission
+from .outreach import approve, draft_hash, initial_contacted, set_permission
 from .sent_mail import append_sent, detect_sent, mailbox_password, repair_sent
 from .templates import SECTORS, render
 
@@ -97,6 +97,17 @@ def mark_contacted(db: Database, email: str, config: Config, actor: str, notes: 
     )
     if not stopped(lead):
         contacted(db, lead.id or 0, config, actor, notes)
+
+
+def public_business_basis(lead: Lead) -> str:
+    sources = [lead.contact_page, lead.website, *lead.source_urls]
+    source = next((item for item in sources if item.startswith(("https://", "http://"))), "")
+    if not source:
+        raise ValueError("Public business outreach requires a public source URL")
+    return (
+        "Owner-approved initial outreach to a public business contact address "
+        f"published for the organization; source: {source}"
+    )
 
 
 def draft(lead: Lead, region: str = "") -> None:
@@ -233,10 +244,17 @@ def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
             not in {
                 "Current draft requires human approval",
                 "Approval missing or expired",
+                "No policy-permitted documented email permission basis",
                 "Permission basis changed since approval",
                 "Initial outreach already attempted or not approved",
             }
         ]
+        if (
+            lead.email_permission_status
+            not in {Permission.UNKNOWN.value, Permission.PUBLIC_BUSINESS_OUTREACH.value}
+            and lead.email_permission_status not in config.mail.allowed_permission_states
+        ):
+            reasons.append("Existing email permission state does not permit outreach")
         if reasons:
             raise ValueError(f"Batch blocked for lead {lead.id}: {'; '.join(reasons)}")
     if input(f"Wirklich alle {len(pending)} Mails versenden? Tippe JA: ").strip() != "JA":
@@ -253,6 +271,15 @@ def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
             time.sleep(config.mail.minimum_interval_seconds)
         if draft_hash(db.get(lead.id or 0)) != displayed_hashes[lead.id]:
             raise ValueError("Displayed draft changed; preview and confirm a fresh batch")
+        current = db.get(lead.id or 0)
+        if current.email_permission_status == Permission.UNKNOWN.value:
+            set_permission(
+                db,
+                lead.id or 0,
+                Permission.PUBLIC_BUSINESS_OUTREACH.value,
+                public_business_basis(current),
+                args.actor,
+            )
         approve(db, lead.id or 0, args.actor, config)
         result = Mailer(db, config).send(lead.id or 0, live=True)
         print(

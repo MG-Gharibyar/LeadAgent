@@ -53,7 +53,11 @@ class DiscoveryConfig:
 class MailConfig:
     automatic_sending_enabled: bool = False
     allowed_permission_states: list[str] = field(
-        default_factory=lambda: ["CONSENTED", "REQUESTED_INFORMATION"]
+        default_factory=lambda: [
+            "CONSENTED",
+            "REQUESTED_INFORMATION",
+            "PUBLIC_BUSINESS_OUTREACH",
+        ]
     )
     minimum_interval_seconds: int = 60
     approval_valid_days: int = 7

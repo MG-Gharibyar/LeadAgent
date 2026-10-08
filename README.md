@@ -331,3 +331,14 @@ delivery Message-IDs, then falls back to known sender/domain identity. Determini
 classify opt-outs, rejections, information requests, meeting requests, bounces and
 out-of-office messages. Ambiguous replies remain review items. Duplicate Message-IDs are
 idempotently ignored.
+
+
+### Owner-confirmed public business outreach
+
+The batch outreach command does not label cold outreach as consent. For a qualified lead
+whose business email is publicly sourced and whose permission state is still `UNKNOWN`,
+the final human `JA` confirmation records `PUBLIC_BUSINESS_OUTREACH` together with a
+public source URL and the named owner actor. Existing `PROHIBITED`, opt-out, suppression,
+customer, response, duplicate-contact, stale-evidence and rate-limit gates remain in force.
+This is an audit state describing how the contact was selected; it is not represented as
+recipient consent.

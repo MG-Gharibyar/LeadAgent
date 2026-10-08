@@ -111,7 +111,8 @@ def test_batch_confirmation_and_persistence(answer, db, config, qualified, tmp_p
     config.mail.automatic_sending_enabled = True
     qualified.segment = "law_firm"
     db.save(qualified)
-    set_permission(db, qualified.id, "CONSENTED", "Synthetic written request", "reviewer")
+    # No consent flag is pre-populated. The single JA confirmation records an explicit
+    # PUBLIC_BUSINESS_OUTREACH audit basis instead of pretending consent.
     # Mock only the network boundary; the shared Mailer exercises all delivery gates.
     from leadagent.mail import Mailer
 
@@ -128,7 +129,10 @@ def test_batch_confirmation_and_persistence(answer, db, config, qualified, tmp_p
         confirm.assert_called_once_with("Wirklich alle 1 Mails versenden? Tippe JA: ")
     assert len(sent) == (1 if answer == "JA" else 0)
     if answer == "JA":
-        assert db.history(qualified.id)[0]["state"] == "ACCEPTED"
+        history = db.history(qualified.id)
+        assert history[0]["state"] == "ACCEPTED"
+        assert history[0]["permission_status"] == "PUBLIC_BUSINESS_OUTREACH"
+        assert "public business contact" in history[0]["permission_basis"]
         assert stopped(db.get(qualified.id))
         assert dispatch(arguments("preview"), db, config) == 0
 
@@ -161,8 +165,6 @@ def test_failed_batch_is_not_accepted_or_retried(db, config, qualified, tmp_path
     config.mail.automatic_sending_enabled = True
     qualified.segment = "law_firm"
     db.save(qualified)
-    set_permission(db, qualified.id, "CONSENTED", "Synthetic request", "reviewer")
-
     def failing_transport(message):
         raise OSError("Synthetic network failure")
 

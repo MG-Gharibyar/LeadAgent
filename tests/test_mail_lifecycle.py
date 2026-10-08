@@ -244,3 +244,16 @@ def test_rate_limit_between_companies(db, config, qualified):
     with pytest.raises(ValueError, match="rate limit"):
         Mailer(db, config, lambda _: None).send(other.id, live=True)
     assert db.get(other.id).contact_count == 0
+
+
+def test_public_business_outreach_permission_state(db, config, qualified):
+    set_permission(
+        db,
+        qualified.id,
+        "PUBLIC_BUSINESS_OUTREACH",
+        "Owner-approved public business contact; source: https://example.invalid/contact",
+        "OWNER",
+    )
+    lead = db.get(qualified.id)
+    assert lead.email_permission_status == "PUBLIC_BUSINESS_OUTREACH"
+    assert "PUBLIC_BUSINESS_OUTREACH" in config.mail.allowed_permission_states
