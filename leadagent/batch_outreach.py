@@ -18,6 +18,18 @@ from .outreach import approve, draft_hash, initial_contacted, set_permission
 from .sent_mail import append_sent, detect_sent, mailbox_password, repair_sent
 from .templates import SECTORS, render
 
+RECOMMENDED_SERVICES = {
+    "law_firm": "Windows Security Assessment",
+    "medical_practice": "Windows Security Assessment",
+    "tax_advisor": "Microsoft 365 Security",
+    "it_service_provider": "Partner Security Assessment",
+    "manufacturing_industry": "IT Security Assessment / Backup & Recovery",
+    "electrical_engineering": "Windows Security Assessment / Backup & Recovery",
+    "logistics": "IT Security Assessment / Backup & Recovery",
+    "property_management": "Microsoft 365 Security / Backup & Recovery",
+    "technical_trade": "Windows Security Assessment / Microsoft 365 Security",
+}
+
 
 def stopped(lead: Lead) -> bool:
     return initial_contacted(lead)
@@ -29,6 +41,8 @@ def import_leads(
     sector: str,
     config: Config,
     default_region: str = "",
+    manual_reviewed_override: bool = False,
+    reviewed_by_override: str = "",
 ) -> list[Lead]:
     data: Any = json.loads(path.read_text(encoding="utf-8"))
     campaign = data.get("campaign", {}) if isinstance(data, dict) else {}
@@ -46,6 +60,15 @@ def import_leads(
     for row in rows:
         if not isinstance(row, dict):
             raise ValueError("Every lead must be a JSON object")
+        row_sector = str(row.get("sector", row.get("segment", sector)) or sector).strip()
+        if row_sector == "tax_advisory":
+            row_sector = "tax_advisor"
+        if row_sector not in SECTORS:
+            raise ValueError("Unsupported import sector")
+        # A single factual JSON file may contain several outreach sectors. Each command
+        # imports only its requested sector, so history/deduplication stays centralized.
+        if row_sector != sector:
+            continue
         email = str(row.get("email", row.get("public_email", ""))).strip().lower()
         if not email_valid(email):
             raise ValueError("Import requires a valid business email")
@@ -53,17 +76,34 @@ def import_leads(
         explicit_website = str(row.get("website", "") or "").strip()
         website = explicit_website or f"https://{domain}"
         source_url = str(row.get("source_url", "") or explicit_website).strip()
-        manual_reviewed = bool(row.get("manual_reviewed", campaign.get("manual_reviewed", False)))
+        manual_reviewed = manual_reviewed_override or bool(
+            row.get("manual_reviewed", campaign.get("manual_reviewed", False))
+        )
         campaign_region = str(
             row.get("campaign_region") or campaign.get("region") or default_region or ""
         ).strip()
-        reviewed_by = str(row.get("reviewed_by") or campaign.get("reviewed_by") or "OWNER").strip()
+        reviewed_by = str(
+            reviewed_by_override
+            or row.get("reviewed_by")
+            or campaign.get("reviewed_by")
+            or ""
+        ).strip()
+        custom_subject = str(row.get("email_subject", "") or "").strip()
+        custom_body = str(row.get("email_body", "") or "").strip()
+        if bool(custom_subject) != bool(custom_body):
+            raise ValueError("Custom outreach requires both email_subject and email_body")
+        if custom_subject and (
+            any(ch in custom_subject for ch in "\r\n") or len(custom_subject) > 200
+        ):
+            raise ValueError("Invalid custom email subject")
+        if custom_body and ("\x00" in custom_body or len(custom_body) > 20000):
+            raise ValueError("Invalid custom email body")
         lead = Lead(
             company_name=str(row.get("company", row.get("company_name", "")) or ""),
             website=website,
             public_email=email,
             city=row.get("city", ""),
-            segment=str(row.get("sector", row.get("segment", sector)) or sector),
+            segment=row_sector,
             campaign_region=campaign_region,
             notes=row.get("notes", ""),
             public_contact_name_if_relevant=row.get("contact_name", ""),
@@ -81,12 +121,6 @@ def import_leads(
                 "source_urls",
             ):
                 setattr(lead, field, getattr(exported, field))
-        if lead.segment == "tax_advisory":
-            lead.segment = "tax_advisor"
-        if lead.segment not in SECTORS:
-            raise ValueError("Unsupported import sector")
-        if manual_reviewed and lead.segment != sector:
-            raise ValueError("Manually reviewed lead sector does not match outreach sector")
         if manual_reviewed:
             if not lead.company_name.strip():
                 raise ValueError("Manual reviewed lead requires company")
@@ -117,12 +151,21 @@ def import_leads(
             lead.last_researched_at = at
             lead.final_score = config.minimum_score
             lead.qualified_at = at
-            lead.recommended_dsc_service = {
-                "law_firm": "Windows Security Assessment",
-                "medical_practice": "Windows Security Assessment",
-                "tax_advisor": "Microsoft 365 Security",
-                "it_service_provider": "Partner Security Assessment",
-            }[lead.segment]
+            lead.recommended_dsc_service = str(
+                row.get("suggested_service") or RECOMMENDED_SERVICES[lead.segment]
+            )
+            personalization = str(row.get("public_observation", "") or "").strip()
+            personalization_evidence = (
+                Evidence(
+                    "personalization",
+                    "public_observation",
+                    personalization,
+                    source_url,
+                    at,
+                )
+                if personalization
+                else manual_evidence
+            )
             lead.evidence = [
                 manual_evidence,
                 Evidence(
@@ -147,12 +190,38 @@ def import_leads(
                     at,
                 ),
             ]
-            lead.draft_evidence = [manual_evidence]
+            if personalization_evidence is not manual_evidence:
+                lead.evidence.append(personalization_evidence)
+            lead.draft_evidence = [personalization_evidence]
             lead.draft_evidence_urls = [source_url]
+            if custom_subject:
+                lead.draft_subject = custom_subject
+                lead.draft_text = custom_body
+                lead.draft_html = (
+                    "<html><body>"
+                    + html.escape(custom_body).replace("\n", "<br>")
+                    + "</body></html>"
+                )
+                lead.draft_source = "manual_json"
             lead.notes = (
                 lead.notes + " | " if lead.notes else ""
             ) + f"Manual JSON review by {reviewed_by}"
         lead, _ = db.upsert(lead, [(domain, source_url or str(path))])
+        # Database upsert intentionally preserves delivery/suppression state. A freshly
+        # reviewed manual draft may still replace an unsent prior draft, but never history.
+        if custom_subject and not stopped(lead):
+            lead.draft_subject = custom_subject
+            lead.draft_text = custom_body
+            lead.draft_html = (
+                "<html><body>"
+                + html.escape(custom_body).replace("\n", "<br>")
+                + "</body></html>"
+            )
+            lead.draft_source = "manual_json"
+            lead.approved_draft_hash = ""
+            lead.approved_at = ""
+            lead.approved_by = ""
+            db.save(lead)
         if row.get("contacted_manually") and not stopped(lead):
             contacted(db, lead.id or 0, config, "import", f"Manual contact recorded in {path}")
             lead = db.get(lead.id or 0)
@@ -202,12 +271,15 @@ def public_business_basis(lead: Lead) -> str:
 
 
 def draft(lead: Lead, region: str = "") -> None:
-    lead.draft_subject, lead.draft_text = render(
-        lead.segment, lead.company_name, lead.campaign_region or region or lead.city
-    )
-    lead.draft_html = (
-        "<html><body>" + html.escape(lead.draft_text).replace("\n", "<br>") + "</body></html>"
-    )
+    if lead.draft_source != "manual_json":
+        lead.draft_subject, lead.draft_text = render(
+            lead.segment, lead.company_name, lead.campaign_region or region or lead.city
+        )
+        lead.draft_html = (
+            "<html><body>"
+            + html.escape(lead.draft_text).replace("\n", "<br>")
+            + "</body></html>"
+        )
     lead.approved_draft_hash = ""
     lead.approved_at = ""
     lead.approved_by = ""
@@ -259,6 +331,13 @@ def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
             )
         return 0
     requested_region = str(getattr(args, "region", "") or "").strip()
+    review_input = bool(getattr(args, "review_input", False))
+    reviewed_by = str(
+        getattr(args, "reviewed_by", "")
+        or (getattr(args, "actor", "") if review_input else "")
+    ).strip()
+    if review_input and not reviewed_by:
+        raise ValueError("--review-input requires --reviewed-by or a named --actor")
     imported = (
         import_leads(
             db,
@@ -266,6 +345,8 @@ def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
             args.sector,
             config,
             default_region=requested_region,
+            manual_reviewed_override=review_input,
+            reviewed_by_override=reviewed_by,
         )
         if args.input
         else db.all()
