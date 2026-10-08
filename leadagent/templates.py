@@ -15,6 +15,8 @@ SIGNATURE = (
 SECTORS = {
     "law_firm": """Guten Tag,
 
+ich wende mich an {company}, weil IT-Sicherheit für kleine und mittlere Unternehmen zunehmend ein operatives Thema ist.
+
 {intro}
 
 Kanzleien verarbeiten täglich sensible Mandats- und Kommunikationsdaten. Gerade bei Windows, E-Mail, Microsoft 365 und extern erreichbaren Diensten können einzelne Fehlkonfigurationen unnötige Risiken schaffen.
@@ -26,6 +28,8 @@ Wenn das Thema für Sie grundsätzlich interessant ist, können wir uns gerne ei
 {signature}
 """,
     "medical_practice": """Guten Tag,
+
+ich wende mich an {company}, weil IT-Sicherheit für kleine und mittlere Unternehmen zunehmend ein operatives Thema ist.
 
 {intro}
 
@@ -39,6 +43,8 @@ Wenn das Thema für Sie grundsätzlich interessant ist, können wir uns gerne ei
 """,
     "tax_advisor": """Guten Tag,
 
+ich wende mich an {company}, weil IT-Sicherheit für kleine und mittlere Unternehmen zunehmend ein operatives Thema ist.
+
 {intro}
 
 In Steuerberatung und Lohnbuchhaltung werden sensible Finanz- und Mandantendaten verarbeitet. Windows, E-Mail, Microsoft 365 und digitaler Dokumentenaustausch sollten deshalb sauber abgesichert und zuverlässig wiederherstellbar sein.
@@ -50,6 +56,8 @@ Wenn das für Sie interessant ist, können wir uns gerne einmal 15 Minuten unver
 {signature}
 """,
     "it_service_provider": """Guten Tag,
+
+ich wende mich an {company}, weil IT-Sicherheit für kleine und mittlere Unternehmen zunehmend ein operatives Thema ist.
 
 {intro}
 
@@ -63,6 +71,8 @@ Wäre ein kurzer unverbindlicher Austausch zu einer möglichen Zusammenarbeit in
 """,
     "manufacturing_industry": """Guten Tag,
 
+ich wende mich an {company}, weil IT-Sicherheit für kleine und mittlere Unternehmen zunehmend ein operatives Thema ist.
+
 {intro}
 
 In Fertigungs- und Produktionsumgebungen sind stabile Systeme, verlässliche Datensicherung und sauber abgesicherte Zugänge besonders wichtig, weil IT-Ausfälle schnell operative Auswirkungen haben.
@@ -74,6 +84,8 @@ Wenn das Thema für Sie grundsätzlich interessant ist, können wir uns gerne ei
 {signature}
 """,
     "electrical_engineering": """Guten Tag,
+
+ich wende mich an {company}, weil IT-Sicherheit für kleine und mittlere Unternehmen zunehmend ein operatives Thema ist.
 
 {intro}
 
@@ -87,6 +99,8 @@ Wenn das Thema für Sie grundsätzlich interessant ist, können wir uns gerne ei
 """,
     "logistics": """Guten Tag,
 
+ich wende mich an {company}, weil IT-Sicherheit für kleine und mittlere Unternehmen zunehmend ein operatives Thema ist.
+
 {intro}
 
 In Transport und Logistik hängen Disposition, Kommunikation und operative Abläufe stark von verfügbarer IT ab. Belastbare Backups und sauber konfigurierte Systeme sind deshalb besonders wichtig.
@@ -99,6 +113,8 @@ Wenn das Thema für Sie grundsätzlich interessant ist, können wir uns gerne ei
 """,
     "property_management": """Guten Tag,
 
+ich wende mich an {company}, weil IT-Sicherheit für kleine und mittlere Unternehmen zunehmend ein operatives Thema ist.
+
 {intro}
 
 In der Immobilienverwaltung werden viele sensible Dokumente, E-Mails, Zugänge und personenbezogene Daten verarbeitet. Eine saubere Absicherung von Microsoft 365, Windows und Datensicherung ist deshalb besonders relevant.
@@ -110,6 +126,8 @@ Wenn das Thema für Sie grundsätzlich interessant ist, können wir uns gerne ei
 {signature}
 """,
     "technical_trade": """Guten Tag,
+
+ich wende mich an {company}, weil IT-Sicherheit für kleine und mittlere Unternehmen zunehmend ein operatives Thema ist.
 
 {intro}
 
