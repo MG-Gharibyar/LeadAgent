@@ -54,7 +54,7 @@ def import_leads(
     campaign_sector = str(campaign.get("sector", "") or "").strip()
     if campaign_sector == "tax_advisory":
         campaign_sector = "tax_advisor"
-    if campaign_sector and campaign_sector != sector:
+    if campaign_sector and sector != "all" and campaign_sector != sector:
         raise ValueError("Campaign sector does not match outreach sector")
     result = []
     for row in rows:
@@ -67,7 +67,7 @@ def import_leads(
             raise ValueError("Unsupported import sector")
         # A single factual JSON file may contain several outreach sectors. Each command
         # imports only its requested sector, so history/deduplication stays centralized.
-        if row_sector != sector:
+        if sector != "all" and row_sector != sector:
             continue
         email = str(row.get("email", row.get("public_email", ""))).strip().lower()
         if not email_valid(email):
@@ -336,6 +336,8 @@ def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
             )
         return 0
     requested_region = str(getattr(args, "region", "") or "").strip()
+    if args.sector == "all" and not getattr(args, "input", None):
+        raise ValueError("Mixed-sector outreach requires an explicit --input file")
     review_input = bool(getattr(args, "review_input", False))
     reviewed_by = str(
         getattr(args, "reviewed_by", "") or (getattr(args, "actor", "") if review_input else "")
@@ -355,11 +357,15 @@ def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
         if args.input
         else db.all()
     )
-    leads = [
-        lead
-        for lead in imported
-        if lead.segment.replace("tax_advisory", "tax_advisor") == args.sector
-    ]
+    leads = (
+        imported
+        if args.sector == "all"
+        else [
+            lead
+            for lead in imported
+            if lead.segment.replace("tax_advisory", "tax_advisor") == args.sector
+        ]
+    )
     if any(c in requested_region for c in "\r\n"):
         raise ValueError("Invalid campaign region")
     if requested_region:
