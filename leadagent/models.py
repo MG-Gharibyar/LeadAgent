@@ -139,6 +139,7 @@ class Lead:
     draft_subject: str = ""
     draft_text: str = ""
     draft_html: str = ""
+    draft_source: str = ""
     draft_kind: str = "initial"
     draft_evidence_urls: list[str] = field(default_factory=list)
     draft_evidence: list[Evidence] = field(default_factory=list)
