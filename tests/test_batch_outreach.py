@@ -524,3 +524,40 @@ def test_mixed_sector_all_preview_is_single_safe_batch(db, config, tmp_path, mon
 def test_mixed_sector_all_requires_explicit_input(db, config):
     with pytest.raises(ValueError, match="requires an explicit --input"):
         dispatch(arguments("preview", "all"), db, config)
+
+
+def test_reviewed_reimport_qualifies_existing_unsent_identity(db, config, tmp_path):
+    path = fixture(
+        tmp_path / "lead.json",
+        [
+            {
+                "company": "Synthetic Produktion GmbH",
+                "email": "info@produktion.example",
+                "website": "https://produktion.example/",
+                "city": "Karlsruhe",
+                "sector": "manufacturing_industry",
+                "source_url": "https://produktion.example/kontakt",
+                "public_observation": "Produziert Präzisionsteile.",
+                "email_subject": "Produktion Security",
+                "email_body": "Individuelle Beratung Produktion",
+            }
+        ],
+    )
+    first = import_leads(db, path, "manufacturing_industry", config)[0]
+    assert not first.qualified_at
+    assert first.final_score == 0
+
+    reviewed = import_leads(
+        db,
+        path,
+        "manufacturing_industry",
+        config,
+        default_region="Karlsruhe",
+        manual_reviewed_override=True,
+        reviewed_by_override="Hasib Gharibyar",
+    )[0]
+    assert reviewed.id == first.id
+    assert reviewed.qualified_at
+    assert reviewed.final_score == config.minimum_score
+    assert reviewed.draft_evidence
+    assert reviewed.draft_source == "manual_json"
