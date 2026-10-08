@@ -34,7 +34,7 @@ discovery:
     - 'Rechtsanwaltskanzlei digitales Mandantenportal Deutschland'
     - 'IT Systemhaus Microsoft 365 Managed Services Partner Deutschland'
 mail:
-  automatic_sending_enabled: false
+  automatic_sending_enabled: true
   allowed_permission_states: [CONSENTED, REQUESTED_INFORMATION]
   minimum_interval_seconds: 60
   approval_valid_days: 7
