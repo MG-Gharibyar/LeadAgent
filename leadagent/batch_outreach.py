@@ -232,7 +232,7 @@ def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
         }
     )
     print(
-        f"Discovered: {summary.get('discovered', 0)}\nDuplicates: {summary.get('duplicates', 0)}\nAlready contacted: {already}\nQualified: {qualified_count}\nPending outreach in this batch: {len(pending)}"
+        f"Discovered: {summary.get('discovered', 0)}\nDuplicates: {summary.get('duplicates', 0)}\nAlready contacted: {already}\nQualified: {qualified_count}\nPending outreach: {len(pending)}"
     )
     for lead in pending:
         print(
