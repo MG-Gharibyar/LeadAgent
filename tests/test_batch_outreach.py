@@ -15,7 +15,15 @@ from leadagent.mail import FROM_EMAIL, SMTPSettings, build_message, smtp_transpo
 from leadagent.templates import SECTORS, render
 
 
-def arguments(action, sector="law_firm", path=None, region="", max_count=None):
+def arguments(
+    action,
+    sector="law_firm",
+    path=None,
+    region="",
+    max_count=None,
+    review_input=False,
+    reviewed_by="",
+):
     return argparse.Namespace(
         outreach_command=action,
         sector=sector,
@@ -23,6 +31,8 @@ def arguments(action, sector="law_firm", path=None, region="", max_count=None):
         actor="reviewer",
         region=region,
         max_count=max_count,
+        review_input=review_input,
+        reviewed_by=reviewed_by,
     )
 
 
@@ -48,11 +58,17 @@ def test_templates_and_dry_run(sector, db, config, tmp_path, monkeypatch, capsys
     assert lead.contact_count == 0
     assert "DRY-RUN" in capsys.readouterr().out
     body = render(sector, "Synthetic")[1]
+    assert "€" not in body
     assert {
-        "law_firm": "1.100 €",
+        "law_firm": "individuell abgestimmten",
         "medical_practice": "Patientendaten",
         "tax_advisor": "Mandantendaten",
-        "it_service_provider": "White-Label",
+        "it_service_provider": "projektbezogen",
+        "manufacturing_industry": "Fertigungs- und Produktionsumgebungen",
+        "electrical_engineering": "technisch geprägten Betrieben",
+        "logistics": "Transport und Logistik",
+        "property_management": "Immobilienverwaltung",
+        "technical_trade": "technischem Handel",
     }[sector] in body
 
 
@@ -74,10 +90,13 @@ def test_identity_manual_and_cross_sector(db, config, tmp_path):
         },
         {"company": "Other", "email": "contact@alpha.example", "sector": "medical_practice"},
     ]
-    imported = import_leads(db, fixture(tmp_path / "leads.json", rows), "law_firm", config)
-    assert len({lead.id for lead in imported}) == 1
+    path = fixture(tmp_path / "leads.json", rows)
+    law = import_leads(db, path, "law_firm", config)
+    tax = import_leads(db, path, "tax_advisor", config)
+    medical = import_leads(db, path, "medical_practice", config)
+    assert len({law[0].id, tax[0].id, medical[0].id}) == 1
     mark_contacted(db, "office@beta.example", config, "human", "Previous manual contact")
-    assert stopped(db.get(imported[0].id))
+    assert stopped(db.get(law[0].id))
     assert len(db.all()) == 1
 
 
@@ -321,3 +340,132 @@ def test_manual_review_flag_requires_explicit_public_source(db, config, tmp_path
     )
     with pytest.raises(ValueError, match="explicit public website"):
         import_leads(db, path, "law_firm", config)
+
+
+def test_mixed_sector_reviewed_input_uses_custom_draft(db, config, tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    path = tmp_path / "mittelstand.json"
+    path.write_text(
+        json.dumps(
+            {
+                "leads": [
+                    {
+                        "company": "Synthetic Produktion GmbH",
+                        "email": "info@produktion.example",
+                        "website": "https://produktion.example/",
+                        "city": "Karlsruhe",
+                        "sector": "manufacturing_industry",
+                        "source_url": "https://produktion.example/kontakt",
+                        "public_observation": "Fertigt öffentlich beschriebene Präzisionsteile.",
+                        "suggested_service": "IT Security Assessment / Backup & Recovery",
+                        "email_subject": "Kurzer Austausch zur IT-Sicherheit bei Synthetic Produktion GmbH",
+                        "email_body": "Guten Tag,\\n\\nindividuelle Beratung statt starrem Paket.\\n",
+                    },
+                    {
+                        "company": "Synthetic Logistik GmbH",
+                        "email": "info@logistik.example",
+                        "website": "https://logistik.example/",
+                        "city": "Karlsruhe",
+                        "sector": "logistics",
+                        "source_url": "https://logistik.example/kontakt",
+                        "public_observation": "Bietet öffentlich beschriebene Logistikleistungen.",
+                        "email_subject": "Kurzer Austausch zur IT-Sicherheit bei Synthetic Logistik GmbH",
+                        "email_body": "Guten Tag,\\n\\nLogistik-Beratung.\\n",
+                    },
+                ]
+            }
+        )
+    )
+
+    args = arguments(
+        "preview",
+        "manufacturing_industry",
+        str(path),
+        "Karlsruhe",
+        review_input=True,
+        reviewed_by="Hasib Gharibyar",
+    )
+    assert dispatch(args, db, config) == 0
+    output = capsys.readouterr().out
+    assert "Synthetic Produktion GmbH" in output
+    assert "individuelle Beratung statt starrem Paket" in output
+    assert "Synthetic Logistik GmbH" not in output
+
+    lead = db.all()[0]
+    assert lead.segment == "manufacturing_industry"
+    assert lead.country == "Germany"
+    assert lead.final_score == config.minimum_score
+    assert lead.qualified_at
+    assert lead.draft_source == "manual_json"
+    assert lead.draft_subject.startswith("Kurzer Austausch")
+    assert any(e.kind == "personalization" for e in lead.draft_evidence)
+
+
+def test_review_input_requires_named_reviewer(db, config, tmp_path):
+    path = fixture(
+        tmp_path / "lead.json",
+        [
+            {
+                "company": "Synthetic Produktion GmbH",
+                "email": "info@produktion.example",
+                "website": "https://produktion.example/",
+                "city": "Karlsruhe",
+                "sector": "manufacturing_industry",
+                "source_url": "https://produktion.example/kontakt",
+            }
+        ],
+    )
+    args = arguments(
+        "preview",
+        "manufacturing_industry",
+        str(path),
+        "Karlsruhe",
+        review_input=True,
+    )
+    args.actor = ""
+    with pytest.raises(ValueError, match="requires --reviewed-by"):
+        dispatch(args, db, config)
+
+
+def test_reimport_keeps_contact_history_for_new_sectors(db, config, tmp_path):
+    path = fixture(
+        tmp_path / "lead.json",
+        [
+            {
+                "company": "Synthetic Hausverwaltung GmbH",
+                "email": "info@verwaltung.example",
+                "website": "https://verwaltung.example/",
+                "city": "Karlsruhe",
+                "sector": "property_management",
+                "source_url": "https://verwaltung.example/kontakt",
+            }
+        ],
+    )
+    imported = import_leads(
+        db,
+        path,
+        "property_management",
+        config,
+        default_region="Karlsruhe",
+        manual_reviewed_override=True,
+        reviewed_by_override="Hasib Gharibyar",
+    )
+    mark_contacted(
+        db,
+        imported[0].public_email,
+        config,
+        "Hasib Gharibyar",
+        "Synthetic previous contact",
+    )
+    repeated = import_leads(
+        db,
+        path,
+        "property_management",
+        config,
+        default_region="Karlsruhe",
+        manual_reviewed_override=True,
+        reviewed_by_override="Hasib Gharibyar",
+    )
+    assert repeated[0].id == imported[0].id
+    assert stopped(repeated[0])
+    assert len(db.history(repeated[0].id or 0)) == 1
