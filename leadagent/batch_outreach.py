@@ -204,8 +204,31 @@ def import_leads(
                 lead.notes + " | " if lead.notes else ""
             ) + f"Manual JSON review by {reviewed_by}"
         lead, _ = db.upsert(lead, [(domain, source_url or str(path))])
-        # Database upsert intentionally preserves delivery/suppression state. A freshly
-        # reviewed manual draft may still replace an unsent prior draft, but never history.
+        # Database upsert intentionally preserves delivery/suppression state. Explicit
+        # human review may refresh qualification/evidence on an existing unsent identity.
+        if manual_reviewed:
+            lead.country = "Germany"
+            lead.last_researched_at = at
+            lead.final_score = config.minimum_score
+            lead.qualified_at = at
+            lead.recommended_dsc_service = str(
+                row.get("suggested_service") or RECOMMENDED_SERVICES[lead.segment]
+            )
+            imported_draft_evidence = next(
+                (
+                    evidence
+                    for evidence in reversed(lead.evidence)
+                    if evidence.source_url == source_url
+                    and evidence.kind in {"personalization", "manual_review"}
+                ),
+                None,
+            )
+            if imported_draft_evidence is not None:
+                lead.draft_evidence = [imported_draft_evidence]
+                lead.draft_evidence_urls = [source_url]
+            db.save(lead)
+        # A freshly reviewed manual draft may replace an unsent prior draft, but never
+        # delivery/suppression history.
         if custom_subject and not stopped(lead):
             lead.draft_subject = custom_subject
             lead.draft_text = custom_body
