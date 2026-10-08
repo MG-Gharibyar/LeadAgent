@@ -1,65 +1,126 @@
 from __future__ import annotations
 
-LAW_BODY = "Liebes Team von {company},\n\nheute möchte ich die Gelegenheit nutzen, mich Ihnen kurz vorzustellen. Mein Name ist Hasib Gharibyar. Ich bin studierter Informatiker, Gründer von Digital Skills Campus und seit mehreren Jahren im Bereich IT-Sicherheit tätig.\n\nMit meiner Selbstständigkeit möchte ich insbesondere Kanzleien bei der Absicherung ihrer IT unterstützen. Gerade dort werden täglich sensible Mandatsdaten verarbeitet, weshalb bereits einzelne Fehlkonfigurationen bei E-Mail, Windows-Systemen oder extern erreichbaren Diensten erhebliche Folgen haben können.\n\nDa ich Digital Skills Campus derzeit weiter aufbaue und mir einen Kundenstamm sowie Referenzen aufbauen möchte, biete ich ausgewählten Kanzleien in {region_label} aktuell folgende Leistungen zu vergünstigten Einführungskonditionen an:\n\n🔐 Penetrationstest – 1.100 € Einführungspreis\n\nGezielte Prüfung einer klar abgegrenzten Webanwendung oder extern erreichbaren Infrastruktur – inklusive Schwachstellenbericht, Risikobewertung und konkreten Handlungsempfehlungen.\n\n🖥️ Windows Security Assessment – 690 €\n\nPrüfung zentraler Windows-Sicherheitskonfigurationen und typischer Fehlkonfigurationen – inklusive priorisiertem Maßnahmenbericht.\n\nFalls eines der Angebote für Sie interessant ist, sende ich Ihnen gerne unverbindlich weitere Informationen zu Umfang und Ablauf.\n\nDarüber hinaus biete ich bei Interesse auch eine langfristige Zusammenarbeit im Bereich Managed IT & Security sowie praxisnahe IT-Sicherheitsschulungen für Mitarbeitende an.\n\nMit freundlichen Grüßen\n\nHasib Gharibyar, M.Sc.\nDigital Skills Campus\nE-Mail: kontakt@digitalskills-campus.de\nWeb: https://digitalskills-campus.de\nTel.: 01575 5440113\n"
+INTRO = (
+    "Mein Name ist Hasib Gharibyar. Ich bin Informatiker und Ansprechpartner bei "
+    "Digital Skills Campus in Karlsruhe."
+)
+SIGNATURE = (
+    "Mit freundlichen Grüßen\n\n"
+    "Hasib Gharibyar, M.Sc.\n"
+    "Digital Skills Campus\n"
+    "E-Mail: kontakt@digitalskills-campus.de\n"
+    "Web: https://digitalskills-campus.de"
+)
 
-INTRO = "Mein Name ist Hasib Gharibyar, Gründer von Digital Skills Campus und seit mehreren Jahren im Bereich IT-Sicherheit tätig."
-SIGNATURE = "Mit freundlichen Grüßen\n\nHasib Gharibyar, M.Sc.\nDigital Skills Campus\nE-Mail: kontakt@digitalskills-campus.de\nWeb: https://digitalskills-campus.de"
 SECTORS = {
-    "law_firm": LAW_BODY,
-    "medical_practice": """Liebes Team von {company},
+    "law_firm": """Guten Tag,
 
-"""
-    + INTRO
-    + """
+{intro}
 
-Arzt- und Zahnarztpraxen, MVZ und Psychotherapiepraxen verarbeiten sensible Patientendaten. Windows-Arbeitsplätze, E-Mail und externe Systeme sollten sicher funktionieren; verlässliche Wiederherstellung hilft, Ausfälle und die Folgen von Ransomware zu begrenzen.
+Kanzleien verarbeiten täglich sensible Mandats- und Kommunikationsdaten. Gerade bei Windows, E-Mail, Microsoft 365 und extern erreichbaren Diensten können einzelne Fehlkonfigurationen unnötige Risiken schaffen.
 
-Windows Security Assessment – 690 €: Prüfung zentraler Windows-Sicherheitskonfigurationen mit priorisiertem Maßnahmenbericht.
+Wir unterstützen kleine und mittlere Kanzleien mit individuell abgestimmten IT-Sicherheitsprüfungen. In einem kurzen unverbindlichen Austausch klären wir zunächst, welche Systeme und Themen für Sie tatsächlich relevant sind. Anschließend erhalten Sie einen klar abgegrenzten Vorschlag, zum Beispiel für ein Windows Security Assessment, eine Microsoft-365-Prüfung oder einen technischen Penetrationstest.
 
-Backup & Recovery Review: Prüfung der Sicherungs- und Wiederherstellungsabläufe, inklusive konkreter Verbesserungen. Umfang und Preis stimmen wir vorab ab.
+Wenn das Thema für Sie grundsätzlich interessant ist, können wir uns gerne einmal 15 Minuten unverbindlich austauschen.
 
-Bei Bedarf ergänzen wir dies durch einen klar abgegrenzten Penetrationstest, Managed IT & Security oder praktische Sicherheitsschulungen.
+{signature}
+""",
+    "medical_practice": """Guten Tag,
 
-Gerne sende ich Ihnen unverbindlich Informationen zu Umfang und Ablauf.
+{intro}
 
-"""
-    + SIGNATURE,
-    "tax_advisor": """Liebes Team von {company},
+Arzt- und Zahnarztpraxen, MVZ und Psychotherapiepraxen verarbeiten sensible Patientendaten und sind auf zuverlässig verfügbare IT angewiesen.
 
-"""
-    + INTRO
-    + """
+Wir unterstützen kleinere und mittlere Praxen individuell bei Windows-Sicherheit, Backup & Recovery und der Absicherung zentraler IT-Dienste. In einem kurzen unverbindlichen Austausch schauen wir zunächst, welche Systeme bei Ihnen im Einsatz sind und wo eine Prüfung sinnvoll wäre. Danach schlagen wir einen klar abgegrenzten passenden Umfang vor.
 
-In der Steuerberatung und Lohnbuchhaltung werden sensible Finanz- und Mandantendaten verarbeitet. Windows, E-Mail, Microsoft 365 und digitaler Dokumentenaustausch erfordern sichere Identitäten und Zugriffe sowie verlässliche Backups.
+Wenn das Thema für Sie grundsätzlich interessant ist, können wir uns gerne einmal 15 Minuten unverbindlich austauschen.
 
-Windows Security Assessment – 690 €: Prüfung zentraler Windows-Sicherheitskonfigurationen mit priorisiertem Maßnahmenbericht.
+{signature}
+""",
+    "tax_advisor": """Guten Tag,
 
-Microsoft 365 Security Assessment: Prüfung der Identitäts-, Zugriffs- und Mandanteneinstellungen. Alternativ prüfen wir extern erreichbare Dienste mit einem klar abgegrenzten Penetrationstest. Umfang und Preis stimmen wir vorab ab.
+{intro}
 
-Optional unterstütze ich Sie langfristig mit Managed IT & Security und praktischen Schulungen für Mitarbeitende.
+In Steuerberatung und Lohnbuchhaltung werden sensible Finanz- und Mandantendaten verarbeitet. Windows, E-Mail, Microsoft 365 und digitaler Dokumentenaustausch sollten deshalb sauber abgesichert und zuverlässig wiederherstellbar sein.
 
-Gerne sende ich Ihnen unverbindlich Informationen zu Umfang und Ablauf.
+Wir unterstützen kleine und mittlere Kanzleien individuell bei Windows-Sicherheit, Microsoft-365-Sicherheit und Backup & Recovery. In einem kurzen unverbindlichen Austausch klären wir zunächst, welche Themen für Sie tatsächlich relevant sind, und schlagen anschließend einen klar abgegrenzten passenden Umfang vor.
 
-"""
-    + SIGNATURE,
-    "it_service_provider": """Liebes Team von {company},
+Wenn das für Sie interessant ist, können wir uns gerne einmal 15 Minuten unverbindlich austauschen.
 
-"""
-    + INTRO
-    + """
+{signature}
+""",
+    "it_service_provider": """Guten Tag,
 
-Als Systemhaus betreuen Sie möglicherweise Windows-, Microsoft-365- und Backup-Umgebungen Ihrer Kunden. Falls für einzelne Projekte zusätzliche Security-Assessment- oder Penetrationstest-Kapazität gefragt ist, möchte ich DSC als spezialisierten Partner vorstellen.
+{intro}
 
-White-Label-Penetrationstests: klar abgegrenzte Prüfungen für Ihre SMB-Kunden mit Schwachstellenbericht und priorisierten Maßnahmen.
+Als Systemhaus oder Managed-Service-Provider kann bei einzelnen Kundenprojekten zusätzliche Kapazität für Security Assessments, Penetrationstests oder technische Reviews sinnvoll sein.
 
-Windows Security Assessment: ergänzende Prüfung von Windows-Konfigurationen und Zugriffssicherheit für Ihre Kundenprojekte.
+Digital Skills Campus unterstützt dabei projektbezogen und klar abgegrenzt, auf Wunsch auch als ergänzender Partner im Hintergrund. Umfang und Zusammenarbeit stimmen wir individuell auf das jeweilige Kundenprojekt ab.
 
-Auch Security Reviews und eine langfristige Zusammenarbeit sind möglich. Umfang, Zusammenarbeit und Konditionen stimmen wir projektbezogen ab.
+Wäre ein kurzer unverbindlicher Austausch zu einer möglichen Zusammenarbeit interessant?
 
-Wäre eine kurze Abstimmung zu einer möglichen Kooperation für Sie interessant?
+{signature}
+""",
+    "manufacturing_industry": """Guten Tag,
 
-"""
-    + SIGNATURE,
+{intro}
+
+In Fertigungs- und Produktionsumgebungen sind stabile Systeme, verlässliche Datensicherung und sauber abgesicherte Zugänge besonders wichtig, weil IT-Ausfälle schnell operative Auswirkungen haben.
+
+Wir unterstützen kleine und mittlere Unternehmen individuell bei Windows-Sicherheit, Backup & Recovery sowie klar abgegrenzten technischen Security Assessments. In einem kurzen unverbindlichen Austausch schauen wir zunächst, welche Themen bei Ihnen tatsächlich relevant sind, und schlagen anschließend einen passenden Umfang vor.
+
+Wenn das Thema für Sie grundsätzlich interessant ist, können wir uns gerne einmal 15 Minuten unverbindlich austauschen.
+
+{signature}
+""",
+    "electrical_engineering": """Guten Tag,
+
+{intro}
+
+Bei technisch geprägten Betrieben treffen Büro-IT, mobile Geräte, Projektunterlagen und häufig externe Zugänge aufeinander. Schon kleine Fehlkonfigurationen können dabei unnötige Risiken erzeugen.
+
+Wir unterstützen kleine und mittlere Unternehmen individuell bei Windows-Sicherheit, Microsoft-365-Sicherheit und Backup & Recovery. In einem kurzen unverbindlichen Austausch klären wir zunächst den tatsächlichen Bedarf und schlagen danach einen klar abgegrenzten passenden Umfang vor.
+
+Wenn das Thema für Sie grundsätzlich interessant ist, können wir uns gerne einmal 15 Minuten unverbindlich austauschen.
+
+{signature}
+""",
+    "logistics": """Guten Tag,
+
+{intro}
+
+In Transport und Logistik hängen Disposition, Kommunikation und operative Abläufe stark von verfügbarer IT ab. Belastbare Backups und sauber konfigurierte Systeme sind deshalb besonders wichtig.
+
+Wir unterstützen kleine und mittlere Unternehmen individuell mit IT-Sicherheitsassessments, Windows-Sicherheitsprüfungen und Backup-&-Recovery-Reviews. In einem kurzen unverbindlichen Austausch schauen wir zunächst, welche Themen bei Ihnen tatsächlich relevant sind, und schlagen anschließend einen klar abgegrenzten passenden Umfang vor.
+
+Wenn das Thema für Sie grundsätzlich interessant ist, können wir uns gerne einmal 15 Minuten unverbindlich austauschen.
+
+{signature}
+""",
+    "property_management": """Guten Tag,
+
+{intro}
+
+In der Immobilienverwaltung werden viele sensible Dokumente, E-Mails, Zugänge und personenbezogene Daten verarbeitet. Eine saubere Absicherung von Microsoft 365, Windows und Datensicherung ist deshalb besonders relevant.
+
+Wir unterstützen kleine und mittlere Unternehmen individuell bei Microsoft-365-Sicherheit, Windows-Sicherheit und Backup & Recovery. In einem kurzen unverbindlichen Austausch klären wir zunächst den tatsächlichen Bedarf und schlagen danach einen passenden klar abgegrenzten Umfang vor.
+
+Wenn das Thema für Sie grundsätzlich interessant ist, können wir uns gerne einmal 15 Minuten unverbindlich austauschen.
+
+{signature}
+""",
+    "technical_trade": """Guten Tag,
+
+{intro}
+
+Bei technischem Handel und Industriebedarf greifen Warenwirtschaft, E-Mail, E-Commerce und interne Arbeitsplätze oft eng ineinander. Eine pragmatische Sicherheitsprüfung kann hier schnell konkrete Verbesserungen sichtbar machen.
+
+Wir unterstützen kleine und mittlere Unternehmen individuell bei Windows- und Microsoft-365-Sicherheit, Backup & Recovery sowie technischen Security Assessments. In einem kurzen unverbindlichen Austausch schauen wir zunächst, welche Themen bei Ihnen tatsächlich relevant sind, und schlagen anschließend einen passenden Umfang vor.
+
+Wenn das Thema für Sie grundsätzlich interessant ist, können wir uns gerne einmal 15 Minuten unverbindlich austauschen.
+
+{signature}
+""",
 }
 
 
@@ -73,8 +134,12 @@ def render(sector: str, company: str, region: str = "") -> tuple[str, str]:
         or any(c in region for c in "\r\n")
     ):
         raise ValueError("Invalid sector, company or region")
-    region_label = f"{region.strip()} und Umgebung" if region.strip() else "Ihrer Region"
-    subject = f"IT-Sicherheitsangebote für {company}"
+    subject = f"Kurzer Austausch zur IT-Sicherheit bei {company}"
     if sector == "it_service_provider":
         subject = f"Security-Assessment-Partnerschaft für {company}"
-    return subject, SECTORS[sector].format(company=company, region_label=region_label)
+    return subject, SECTORS[sector].format(
+        company=company,
+        region_label=f"{region.strip()} und Umgebung" if region.strip() else "Ihrer Region",
+        intro=INTRO,
+        signature=SIGNATURE,
+    )
