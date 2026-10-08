@@ -128,7 +128,7 @@ def parser() -> argparse.ArgumentParser:
     actions = outreach.add_subparsers(dest="outreach_command", required=True)
     for name in ("preview", "send"):
         command = actions.add_parser(name)
-        command.add_argument("sector", choices=list(SECTORS))
+        command.add_argument("sector", choices=["all", *SECTORS])
         command.add_argument(
             "--input", help="Legacy or factual lead JSON; otherwise use stored leads"
         )
