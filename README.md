@@ -374,3 +374,12 @@ German metro centers. Major campaign cities such as Stuttgart, Karlsruhe, Mannhe
 Frankfurt, München, Köln and Berlin have built-in center coordinates. OpenStreetMap
 discovery also carries returned object/center coordinates into radius matching, so nearby
 firms can be checked without resolving every suburb name through GeoNames.
+
+
+### Stuttgart free-source fallback
+
+For law-firm campaigns centered on Stuttgart, free discovery combines independent
+Overpass instances with the public regional lawyer search of the Rechtsanwaltskammer
+Stuttgart. A denial on one Overpass host is respected for that host; another independent
+public instance may still be tried. Directory results remain discovery hints only and
+qualification still comes from the firm's own public website.

@@ -17,7 +17,7 @@ from .config import DiscoveryConfig
 from .identity import normalize_domain
 from .providers import Candidate, DiscoveryProvider, SeedProvider
 from .research import Document
-from .web import Page, PublicWebClient
+from .web import AccessDenied, Page, PublicWebClient
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +114,7 @@ class OpenStreetMapDirectory:
                 f"{prefix}({selections});out center tags 500;"
             )
             page = None
-            last_error: OSError | None = None
+            last_error: OSError | ValueError | None = None
             for endpoint in (
                 "https://overpass.private.coffee/api/interpreter",
                 "https://overpass-api.de/api/interpreter",
@@ -123,8 +123,12 @@ class OpenStreetMapDirectory:
                 try:
                     page = self.client.fetch(url)
                     break
+                except AccessDenied as exc:
+                    # Respect the denied host. A separate public instance has its own
+                    # access policy and may still be tried normally.
+                    last_error = exc
+                    continue
                 except OSError as exc:
-                    # Availability failure only. AccessDenied is a ValueError and is not bypassed.
                     last_error = exc
             if page is None:
                 if last_error:
@@ -204,6 +208,52 @@ class LawAssociationDirectory:
                 break
 
 
+class StuttgartBarDirectory:
+    """Public RAK Stuttgart regional lawyer search used only as a discovery hint."""
+
+    name = "rak_stuttgart_regional_search"
+    url = "https://rak-stuttgart.de/fuer-mandaten/regionale-anwaltssuche"
+
+    def __init__(self, client: DirectoryClient) -> None:
+        self.client = client
+
+    def discover(self, limit: int) -> Iterable[Candidate]:
+        page = self.client.fetch(self.url)
+        doc = Document(page.text, page.url)
+        own_domain = normalize_domain(self.url)
+        count = 0
+        seen: set[str] = set()
+        for website in doc.links:
+            if not website.startswith(("http://", "https://")):
+                continue
+            try:
+                domain = normalize_domain(website)
+            except ValueError:
+                continue
+            if not domain or domain == own_domain or domain in seen:
+                continue
+            if any(
+                blocked in domain
+                for blocked in (
+                    "facebook.com",
+                    "instagram.com",
+                    "linkedin.com",
+                    "youtube.com",
+                    "x.com",
+                    "twitter.com",
+                )
+            ):
+                continue
+            label = doc.link_labels.get(website, "").strip() or domain
+            parsed = urlsplit(website)
+            root = f"{parsed.scheme}://{parsed.netloc}/"
+            seen.add(domain)
+            yield Candidate(label, root, page.url, page.retrieved_at)
+            count += 1
+            if count >= limit:
+                return
+
+
 class FreeDiscoveryProvider:
     name = "free"
 
@@ -215,6 +265,13 @@ class FreeDiscoveryProvider:
             sources = [OpenStreetMapDirectory(config, client)]
             if config.sector in {"", "law_firm"} and config.location.casefold() == "karlsruhe":
                 sources.append(LawAssociationDirectory(client))
+            area_cities = {
+                value.rsplit(":", 1)[0].strip().casefold() for value in config.areas
+            }
+            if config.sector in {"", "law_firm"} and (
+                config.location.casefold() == "stuttgart" or "stuttgart" in area_cities
+            ):
+                sources.append(StuttgartBarDirectory(client))
             if Path(config.seeds_file).is_file():
                 sources.append(SeedProvider(config.seeds_file))
         self.sources = sources

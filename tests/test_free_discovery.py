@@ -10,6 +10,7 @@ from leadagent.free_providers import (
     FreeDiscoveryProvider,
     LawAssociationDirectory,
     OpenStreetMapDirectory,
+    StuttgartBarDirectory,
 )
 from leadagent.models import Status, utcnow
 from leadagent.pipeline import discover
@@ -294,3 +295,60 @@ def test_osm_candidate_preserves_directory_coordinates():
     found = list(OpenStreetMapDirectory(config, client).discover(5))
     assert found[0].latitude == 48.80
     assert found[0].longitude == 9.20
+
+
+def test_overpass_access_denied_tries_independent_endpoint():
+    config = DiscoveryConfig(sector="law_firm", location="Karlsruhe")
+    client = MagicMock()
+    client.fetch.side_effect = [
+        AccessDenied("robots"),
+        Page(
+            "https://overpass-api.de/api/interpreter",
+            json.dumps(
+                {
+                    "elements": [
+                        {
+                            "type": "node",
+                            "id": 42,
+                            "lat": 49.0,
+                            "lon": 8.4,
+                            "tags": {
+                                "name": "Independent Endpoint Kanzlei",
+                                "website": "https://independent.example",
+                                "addr:city": "Karlsruhe",
+                            },
+                        }
+                    ]
+                }
+            ),
+            utcnow(),
+        ),
+    ]
+    found = list(OpenStreetMapDirectory(config, client).discover(5))
+    assert [candidate.website for candidate in found] == ["https://independent.example"]
+    assert client.fetch.call_count == 2
+
+
+def test_stuttgart_public_bar_directory_external_sites_only():
+    client = MagicMock()
+    client.fetch.return_value = Page(
+        "https://rak-stuttgart.de/fuer-mandaten/regionale-anwaltssuche",
+        (
+            '<a href="https://rak-stuttgart.de/impressum">RAK</a>'
+            '<a href="https://www.kanzlei-a.example/profil">Kanzlei A</a>'
+            '<a href="https://kanzlei-b.example/">Kanzlei B</a>'
+        ),
+        utcnow(),
+    )
+    found = list(StuttgartBarDirectory(client).discover(10))
+    assert [candidate.website for candidate in found] == [
+        "https://www.kanzlei-a.example/",
+        "https://kanzlei-b.example/",
+    ]
+
+
+def test_stuttgart_area_enables_bar_directory_source():
+    provider = FreeDiscoveryProvider(
+        DiscoveryConfig(sector="law_firm", areas=["Stuttgart:35"]),
+    )
+    assert any(source.name == "rak_stuttgart_regional_search" for source in provider.sources)
