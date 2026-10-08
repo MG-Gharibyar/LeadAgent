@@ -59,11 +59,11 @@ def import_leads(
         ).strip()
         reviewed_by = str(row.get("reviewed_by") or campaign.get("reviewed_by") or "OWNER").strip()
         lead = Lead(
-            company_name=row.get("company", row.get("company_name", "")),
+            company_name=str(row.get("company", row.get("company_name", "")) or ""),
             website=website,
             public_email=email,
             city=row.get("city", ""),
-            segment=row.get("sector", row.get("segment", sector)),
+            segment=str(row.get("sector", row.get("segment", sector)) or sector),
             campaign_region=campaign_region,
             notes=row.get("notes", ""),
             public_contact_name_if_relevant=row.get("contact_name", ""),
