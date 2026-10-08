@@ -13,7 +13,7 @@ from .config import Config
 from .database import Database
 from .identity import normalize_domain
 from .mail import Mailer, blockers, contacted, email_valid
-from .models import Lead, Permission
+from .models import Evidence, Lead, Permission, utcnow
 from .outreach import approve, draft_hash, initial_contacted, set_permission
 from .sent_mail import append_sent, detect_sent, mailbox_password, repair_sent
 from .templates import SECTORS, render
@@ -23,27 +23,60 @@ def stopped(lead: Lead) -> bool:
     return initial_contacted(lead)
 
 
-def import_leads(db: Database, path: Path, sector: str, config: Config) -> list[Lead]:
+def import_leads(
+    db: Database,
+    path: Path,
+    sector: str,
+    config: Config,
+    default_region: str = "",
+) -> list[Lead]:
     data: Any = json.loads(path.read_text(encoding="utf-8"))
+    campaign = data.get("campaign", {}) if isinstance(data, dict) else {}
     rows = data.get("leads", []) if isinstance(data, dict) else data
+    if not isinstance(campaign, dict):
+        raise ValueError("campaign must be a JSON object")
     if not isinstance(rows, list):
         raise ValueError("Expected a lead list or an object containing leads")
+    campaign_sector = str(campaign.get("sector", "") or "").strip()
+    if campaign_sector == "tax_advisory":
+        campaign_sector = "tax_advisor"
+    if campaign_sector and campaign_sector != sector:
+        raise ValueError("Campaign sector does not match outreach sector")
     result = []
     for row in rows:
+        if not isinstance(row, dict):
+            raise ValueError("Every lead must be a JSON object")
         email = str(row.get("email", row.get("public_email", ""))).strip().lower()
         if not email_valid(email):
             raise ValueError("Import requires a valid business email")
         domain = normalize_domain(email.split("@", 1)[1])
-        website = row.get("website") or f"https://{domain}"
+        explicit_website = str(row.get("website", "") or "").strip()
+        website = explicit_website or f"https://{domain}"
+        source_url = str(row.get("source_url", "") or explicit_website).strip()
+        manual_reviewed = bool(
+            row.get("manual_reviewed", campaign.get("manual_reviewed", False))
+        )
+        campaign_region = str(
+            row.get("campaign_region")
+            or campaign.get("region")
+            or default_region
+            or ""
+        ).strip()
+        reviewed_by = str(
+            row.get("reviewed_by")
+            or campaign.get("reviewed_by")
+            or "OWNER"
+        ).strip()
         lead = Lead(
             company_name=row.get("company", row.get("company_name", "")),
             website=website,
             public_email=email,
             city=row.get("city", ""),
             segment=row.get("sector", row.get("segment", sector)),
+            campaign_region=campaign_region,
             notes=row.get("notes", ""),
             public_contact_name_if_relevant=row.get("contact_name", ""),
-            source_urls=[row.get("source_url") or str(path)],
+            source_urls=[source_url or str(path)],
         )
         if "company_name" in row and "evidence" in row:
             exported = Lead.from_dict(row)
@@ -61,7 +94,75 @@ def import_leads(db: Database, path: Path, sector: str, config: Config) -> list[
             lead.segment = "tax_advisor"
         if lead.segment not in SECTORS:
             raise ValueError("Unsupported import sector")
-        lead, _ = db.upsert(lead, [(domain, row.get("source_url") or str(path))])
+        if lead.segment != sector:
+            raise ValueError("Lead sector does not match outreach sector")
+        if manual_reviewed:
+            if not lead.company_name.strip():
+                raise ValueError("Manual reviewed lead requires company")
+            if not explicit_website.startswith(("https://", "http://")):
+                raise ValueError("Manual reviewed lead requires an explicit public website")
+            if not source_url.startswith(("https://", "http://")):
+                raise ValueError("Manual reviewed lead requires a public source_url")
+            if not lead.city.strip():
+                raise ValueError("Manual reviewed lead requires city")
+            if not campaign_region:
+                raise ValueError(
+                    "Manual reviewed lead requires campaign region in JSON or --region"
+                )
+            if not reviewed_by:
+                raise ValueError("Manual reviewed lead requires reviewed_by")
+            at = utcnow()
+            manual_evidence = Evidence(
+                "manual_review",
+                "owner_verified_public_business_contact",
+                (
+                    f"{reviewed_by} manually reviewed the organization, public business "
+                    "email, website and campaign assignment"
+                ),
+                source_url,
+                at,
+            )
+            lead.country = "Germany"
+            lead.last_researched_at = at
+            lead.final_score = config.minimum_score
+            lead.qualified_at = at
+            lead.recommended_dsc_service = {
+                "law_firm": "Windows Security Assessment",
+                "medical_practice": "Windows Security Assessment",
+                "tax_advisor": "Microsoft 365 Security",
+                "it_service_provider": "Partner Security Assessment",
+            }[lead.segment]
+            lead.evidence = [
+                manual_evidence,
+                Evidence(
+                    "segment",
+                    lead.segment,
+                    f"Manual owner review classified the organization as {lead.segment}",
+                    source_url,
+                    at,
+                ),
+                Evidence(
+                    "location",
+                    "Germany",
+                    f"Manual owner review: {lead.city}, Germany",
+                    source_url,
+                    at,
+                ),
+                Evidence(
+                    "contact",
+                    "public_email",
+                    lead.public_email,
+                    source_url,
+                    at,
+                ),
+            ]
+            lead.draft_evidence = [manual_evidence]
+            lead.draft_evidence_urls = [source_url]
+            lead.notes = (
+                (lead.notes + " | " if lead.notes else "")
+                + f"Manual JSON review by {reviewed_by}"
+            )
+        lead, _ = db.upsert(lead, [(domain, source_url or str(path))])
         if row.get("contacted_manually") and not stopped(lead):
             contacted(db, lead.id or 0, config, "import", f"Manual contact recorded in {path}")
             lead = db.get(lead.id or 0)
@@ -167,13 +268,23 @@ def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
                 )
             )
         return 0
-    imported = import_leads(db, Path(args.input), args.sector, config) if args.input else db.all()
+    requested_region = str(getattr(args, "region", "") or "").strip()
+    imported = (
+        import_leads(
+            db,
+            Path(args.input),
+            args.sector,
+            config,
+            default_region=requested_region,
+        )
+        if args.input
+        else db.all()
+    )
     leads = [
         lead
         for lead in imported
         if lead.segment.replace("tax_advisory", "tax_advisor") == args.sector
     ]
-    requested_region = str(getattr(args, "region", "") or "").strip()
     if any(c in requested_region for c in "\r\n"):
         raise ValueError("Invalid campaign region")
     if requested_region:
@@ -241,7 +352,7 @@ def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
             else "REVIEW_ONLY — below qualification policy"
         )
         print(
-            f"City: {lead.city or 'unverified'} | Website: {lead.website} | Source: {', '.join(lead.source_urls)} | Score: {lead.final_score} | Reasons: {'; '.join(reason.reason for reason in lead.score_reasons) or 'Not yet qualified'}"
+            f"City: {lead.city or 'unverified'} | Website: {lead.website} | Source: {', '.join(lead.source_urls)} | Score: {lead.final_score} | Reasons: {'; '.join(reason.reason for reason in lead.score_reasons) or ('Manually reviewed JSON import' if any(e.kind == 'manual_review' for e in lead.evidence) else 'Not yet qualified')}"
         )
         print(
             f"\n{lead.company_name} <{lead.public_email}>\nBetreff: {lead.draft_subject}\n{lead.draft_text}"

@@ -1,9 +1,15 @@
 # DSC LeadAgent
 
-A quality-first German B2B research CLI for Digital Skills Campus. It discovers public
-company websites, records evidence, qualifies up to **20 new companies per UTC day**,
-selects one DSC offer, drafts German outreach, and maintains durable contact history.
-Discovery never sends email. Sending defaults to dry-run.
+DSC LeadAgent manages reviewed B2B outreach, delivery history, IMAP Sent copies, replies,
+suppression and customer follow-up for Digital Skills Campus.
+
+**Recommended production workflow:** research contacts manually, store them in a private
+campaign JSON, preview the exact batch, then send it through the shared outreach engine.
+See [docs/MANUAL_OUTREACH.md](docs/MANUAL_OUTREACH.md).
+
+The automatic discovery/research subsystem remains available as an optional experimental
+source of candidates. It is not required for production campaigns and may return zero
+results when third-party public sources deny automated access. Discovery never sends email.
 
 ## First dry-run (synthetic data, no network or email)
 
@@ -383,3 +389,23 @@ Overpass instances with the public regional lawyer search of the Rechtsanwaltska
 Stuttgart. A denial on one Overpass host is respected for that host; another independent
 public instance may still be tried. Directory results remain discovery hints only and
 qualification still comes from the firm's own public website.
+
+
+## Recommended production operation
+
+For normal DSC campaigns, use the manual JSON workflow rather than depending on automated
+directory discovery:
+
+```bash
+python3 -m leadagent outreach preview law_firm \
+  --input OutReach/data/stuttgart_kanzleien.json \
+  --region Stuttgart --max 20
+
+python3 -m leadagent outreach send law_firm \
+  --input OutReach/data/stuttgart_kanzleien.json \
+  --region Stuttgart --max 20 --actor OWNER
+```
+
+The JSON schema, manual-review requirements, Thunderbird/Sent behavior, reply processing,
+repeat campaigns and data-safety rules are documented in
+[docs/MANUAL_OUTREACH.md](docs/MANUAL_OUTREACH.md).

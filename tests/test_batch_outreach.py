@@ -230,3 +230,94 @@ def test_batch_region_and_max_filter(db, config, tmp_path, monkeypatch, capsys):
     assert "Stuttgart One" in output
     assert "Karlsruhe One" not in output
     assert "Pending outreach: 1" in output
+
+
+def test_manual_reviewed_campaign_json_becomes_sendable(db, config, tmp_path):
+    path = tmp_path / "manual.json"
+    path.write_text(
+        json.dumps(
+            {
+                "campaign": {
+                    "sector": "law_firm",
+                    "region": "Stuttgart",
+                    "reviewed_by": "OWNER",
+                    "manual_reviewed": True,
+                },
+                "leads": [
+                    {
+                        "company": "Synthetic Manual Kanzlei",
+                        "email": "info@manual.example",
+                        "website": "https://manual.example/",
+                        "city": "Stuttgart",
+                        "source_url": "https://manual.example/impressum",
+                    }
+                ],
+            }
+        )
+    )
+    imported = import_leads(db, path, "law_firm", config)
+    lead = imported[0]
+    assert lead.country == "Germany"
+    assert lead.campaign_region == "Stuttgart"
+    assert lead.qualified_at
+    assert lead.final_score == config.minimum_score
+    assert lead.recommended_dsc_service == "Windows Security Assessment"
+    assert any(e.kind == "manual_review" for e in lead.evidence)
+    assert lead.draft_evidence
+    assert lead.draft_evidence_urls == ["https://manual.example/impressum"]
+
+
+def test_manual_reviewed_campaign_can_take_region_from_cli(db, config, tmp_path):
+    path = tmp_path / "manual.json"
+    path.write_text(
+        json.dumps(
+            {
+                "campaign": {
+                    "sector": "law_firm",
+                    "reviewed_by": "OWNER",
+                    "manual_reviewed": True,
+                },
+                "leads": [
+                    {
+                        "company": "Synthetic CLI Region",
+                        "email": "info@cli-region.example",
+                        "website": "https://cli-region.example/",
+                        "city": "Esslingen",
+                        "source_url": "https://cli-region.example/kontakt",
+                    }
+                ],
+            }
+        )
+    )
+    imported = import_leads(
+        db,
+        path,
+        "law_firm",
+        config,
+        default_region="Stuttgart",
+    )
+    assert imported[0].campaign_region == "Stuttgart"
+
+
+def test_manual_review_flag_requires_explicit_public_source(db, config, tmp_path):
+    path = tmp_path / "bad-manual.json"
+    path.write_text(
+        json.dumps(
+            {
+                "campaign": {
+                    "sector": "law_firm",
+                    "region": "Stuttgart",
+                    "manual_reviewed": True,
+                },
+                "leads": [
+                    {
+                        "company": "Missing Website",
+                        "email": "info@missing.example",
+                        "city": "Stuttgart",
+                    }
+                ],
+            }
+        )
+    )
+    with pytest.raises(ValueError, match="explicit public website"):
+        import_leads(db, path, "law_firm", config)

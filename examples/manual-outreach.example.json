@@ -1,0 +1,18 @@
+{
+  "campaign": {
+    "sector": "law_firm",
+    "region": "Stuttgart",
+    "reviewed_by": "OWNER",
+    "manual_reviewed": true
+  },
+  "leads": [
+    {
+      "company": "Synthetic Kanzlei",
+      "email": "info@synthetic-kanzlei.example",
+      "website": "https://synthetic-kanzlei.example/",
+      "city": "Stuttgart",
+      "source_url": "https://synthetic-kanzlei.example/impressum",
+      "notes": "Synthetic documentation example only"
+    }
+  ]
+}
