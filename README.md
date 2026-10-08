@@ -357,3 +357,11 @@ python -m leadagent outreach send law_firm --region Stuttgart --max 20 --actor O
 `--region` matches the stored campaign center (for example Stuttgart even when the
 individual office is in a nearby municipality), and `--max` caps the displayed and
 confirmed batch. The final `JA` confirmation is still required before SMTP is used.
+
+
+### Geo index self-healing and send pacing
+
+If an exact `--area CITY:RADIUS_KM` center is missing from the local GeoNames cache,
+the agent refreshes the Germany index once automatically and retries the lookup. The
+outreach send interval is configured at 2 seconds between messages, keeping delivery
+serial and auditable without the previous 60-second delay.

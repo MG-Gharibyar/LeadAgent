@@ -65,3 +65,34 @@ def test_outside_and_review(tmp_path):
 
 def test_haversine():
     assert math.isclose(haversine_km(49.0, 8.4, 50.0, 8.4), 111.2, rel_tol=0.02)
+
+
+def test_load_areas_refreshes_stale_index_once(tmp_path, monkeypatch):
+    from leadagent import geo
+
+    path = tmp_path / "geo.json"
+    path.write_text(json.dumps({"places": {}}))
+
+    def fake_update(target):
+        assert str(path) == target
+        path.write_text(
+            json.dumps(
+                {
+                    "places": {
+                        "stuttgart": {
+                            "name": "Stuttgart",
+                            "latitude": 48.7758,
+                            "longitude": 9.1829,
+                            "population": 630000,
+                        }
+                    }
+                }
+            )
+        )
+        return 1
+
+    monkeypatch.setattr(geo, "update_geo_database", fake_update)
+    index, areas = geo.load_areas(["Stuttgart:35"], str(path))
+    assert index.resolve("Stuttgart") is not None
+    assert areas[0].city == "Stuttgart"
+    assert areas[0].radius_km == 35

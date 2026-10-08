@@ -36,7 +36,7 @@ discovery:
 mail:
   automatic_sending_enabled: true
   allowed_permission_states: [CONSENTED, REQUESTED_INFORMATION, PUBLIC_BUSINESS_OUTREACH]
-  minimum_interval_seconds: 60
+  minimum_interval_seconds: 2
   approval_valid_days: 7
   evidence_max_age_days: 30
 fit_points:

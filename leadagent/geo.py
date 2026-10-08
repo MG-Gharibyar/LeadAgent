@@ -194,3 +194,16 @@ def apply_area_match(lead: Lead, areas: list[Area], index: GeoIndex) -> str:
     lead.campaign_region = selected.city
     lead.location_review_required = False
     return "MATCH"
+
+
+def load_areas(values: list[str], path: str) -> tuple[GeoIndex, list[Area]]:
+    """Load area centers and auto-refresh a stale local GeoNames index once."""
+    index = GeoIndex(path)
+    try:
+        return index, resolve_areas(values, index)
+    except ValueError as exc:
+        if "German city not found in local GeoNames index:" not in str(exc):
+            raise
+        update_geo_database(path)
+        refreshed = GeoIndex(path)
+        return refreshed, resolve_areas(values, refreshed)

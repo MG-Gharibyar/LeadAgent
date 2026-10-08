@@ -101,10 +101,12 @@ def discover(
     geo_index = None
     area_specs = []
     if config.discovery.areas:
-        from .geo import GeoIndex, resolve_areas
+        from .geo import load_areas
 
-        geo_index = GeoIndex(config.discovery.geo_database)
-        area_specs = resolve_areas(config.discovery.areas, geo_index)
+        geo_index, area_specs = load_areas(
+            config.discovery.areas,
+            config.discovery.geo_database,
+        )
     try:
         for index, candidate in enumerate(provider.discover(config.discovery.maximum_candidates)):
             if index >= config.discovery.maximum_candidates:

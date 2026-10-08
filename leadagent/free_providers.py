@@ -81,12 +81,12 @@ class OpenStreetMapDirectory:
 
     def _scopes(self) -> list[tuple[str, str]]:
         if self.config.areas:
-            from .geo import GeoIndex, resolve_areas
+            from .geo import load_areas
 
-            index = GeoIndex(self.config.geo_database)
+            _, areas = load_areas(self.config.areas, self.config.geo_database)
             return [
                 ("", f"(around:{int(area.radius_km * 1000)},{area.latitude},{area.longitude})")
-                for area in resolve_areas(self.config.areas, index)
+                for area in areas
             ]
         if self.config.location.casefold() == "karlsruhe":
             return [("", "(around:35000,49.0069,8.4037)")]
