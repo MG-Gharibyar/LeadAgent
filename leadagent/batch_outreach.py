@@ -94,8 +94,8 @@ def import_leads(
             lead.segment = "tax_advisor"
         if lead.segment not in SECTORS:
             raise ValueError("Unsupported import sector")
-        if lead.segment != sector:
-            raise ValueError("Lead sector does not match outreach sector")
+        if manual_reviewed and lead.segment != sector:
+            raise ValueError("Manually reviewed lead sector does not match outreach sector")
         if manual_reviewed:
             if not lead.company_name.strip():
                 raise ValueError("Manual reviewed lead requires company")
