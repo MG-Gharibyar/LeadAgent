@@ -4,7 +4,7 @@ import json
 import logging
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from .config import Config
 from .database import Database
@@ -13,6 +13,9 @@ from .models import Lead, Status, utcnow
 from .outreach import initial_contacted, prepare_draft
 from .providers import Candidate, DiscoveryProvider
 from .scoring import score
+
+if TYPE_CHECKING:
+    from .geo import Area, GeoIndex
 
 logger = logging.getLogger(__name__)
 
@@ -98,8 +101,8 @@ def discover(
     assert run_id is not None
     result = RunResult(run_id, 0, 0, 0, [])
     researched_ids: set[int] = set()
-    geo_index = None
-    area_specs = []
+    geo_index: GeoIndex | None = None
+    area_specs: list[Area] = []
     if config.discovery.areas:
         from .geo import load_areas
 
