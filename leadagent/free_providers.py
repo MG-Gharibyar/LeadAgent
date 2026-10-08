@@ -265,9 +265,7 @@ class FreeDiscoveryProvider:
             sources = [OpenStreetMapDirectory(config, client)]
             if config.sector in {"", "law_firm"} and config.location.casefold() == "karlsruhe":
                 sources.append(LawAssociationDirectory(client))
-            area_cities = {
-                value.rsplit(":", 1)[0].strip().casefold() for value in config.areas
-            }
+            area_cities = {value.rsplit(":", 1)[0].strip().casefold() for value in config.areas}
             if config.sector in {"", "law_firm"} and (
                 config.location.casefold() == "stuttgart" or "stuttgart" in area_cities
             ):
