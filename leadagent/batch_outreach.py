@@ -83,10 +83,7 @@ def import_leads(
             row.get("campaign_region") or campaign.get("region") or default_region or ""
         ).strip()
         reviewed_by = str(
-            reviewed_by_override
-            or row.get("reviewed_by")
-            or campaign.get("reviewed_by")
-            or ""
+            reviewed_by_override or row.get("reviewed_by") or campaign.get("reviewed_by") or ""
         ).strip()
         custom_subject = str(row.get("email_subject", "") or "").strip()
         custom_body = str(row.get("email_body", "") or "").strip()
@@ -213,9 +210,7 @@ def import_leads(
             lead.draft_subject = custom_subject
             lead.draft_text = custom_body
             lead.draft_html = (
-                "<html><body>"
-                + html.escape(custom_body).replace("\n", "<br>")
-                + "</body></html>"
+                "<html><body>" + html.escape(custom_body).replace("\n", "<br>") + "</body></html>"
             )
             lead.draft_source = "manual_json"
             imported_draft_evidence = next(
@@ -288,9 +283,7 @@ def draft(lead: Lead, region: str = "") -> None:
             lead.segment, lead.company_name, lead.campaign_region or region or lead.city
         )
         lead.draft_html = (
-            "<html><body>"
-            + html.escape(lead.draft_text).replace("\n", "<br>")
-            + "</body></html>"
+            "<html><body>" + html.escape(lead.draft_text).replace("\n", "<br>") + "</body></html>"
         )
     lead.approved_draft_hash = ""
     lead.approved_at = ""
@@ -345,8 +338,7 @@ def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
     requested_region = str(getattr(args, "region", "") or "").strip()
     review_input = bool(getattr(args, "review_input", False))
     reviewed_by = str(
-        getattr(args, "reviewed_by", "")
-        or (getattr(args, "actor", "") if review_input else "")
+        getattr(args, "reviewed_by", "") or (getattr(args, "actor", "") if review_input else "")
     ).strip()
     if review_input and not reviewed_by:
         raise ValueError("--review-input requires --reviewed-by or a named --actor")
