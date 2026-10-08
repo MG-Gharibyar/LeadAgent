@@ -28,6 +28,7 @@ RECOMMENDED_SERVICES = {
     "logistics": "IT Security Assessment / Backup & Recovery",
     "property_management": "Microsoft 365 Security / Backup & Recovery",
     "technical_trade": "Windows Security Assessment / Microsoft 365 Security",
+    "fitness_studio": "IT Security Assessment / Microsoft 365 Security / Backup & Recovery",
 }
 
 
