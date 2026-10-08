@@ -164,6 +164,7 @@ def test_failed_batch_is_not_accepted_or_retried(db, config, qualified, tmp_path
     config.mail.automatic_sending_enabled = True
     qualified.segment = "law_firm"
     db.save(qualified)
+
     def failing_transport(message):
         raise OSError("Synthetic network failure")
 
