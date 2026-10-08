@@ -154,7 +154,7 @@ def test_discover_and_preview_separation(tmp_path, monkeypatch, capsys):
         "Source:",
     ):
         assert label in output
-    assert "1.100 €" in output
+    assert "individuell abgestimmten IT-Sicherheitsprüfungen" in output
     assert (tmp_path / "reports/discovery-1-review.md").exists()
 
 
