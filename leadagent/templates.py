@@ -139,6 +139,20 @@ Wenn das Thema für Sie grundsätzlich interessant ist, können wir uns gerne ei
 
 {signature}
 """,
+    "fitness_studio": """Guten Tag,
+
+ich wende mich an {company}, weil IT-Sicherheit auch für Fitness- und Gesundheitsstudios zunehmend ein operatives Thema ist.
+
+{intro}
+
+Fitnessstudios arbeiten heute häufig mit digitaler Mitgliederverwaltung, Online-Buchungen, Zutrittslösungen, Apps, Zahlungsdaten, E-Mail und vernetzten Arbeitsplätzen. Verfügbarkeit und sauber abgesicherte Zugänge sind deshalb sowohl für den laufenden Studiobetrieb als auch für den Schutz von Mitgliederdaten wichtig.
+
+Wir unterstützen Fitness- und Gesundheitsstudios individuell bei Windows- und Microsoft-365-Sicherheit, Backup & Recovery sowie klar abgegrenzten technischen Security Assessments. In einem kurzen unverbindlichen Austausch schauen wir zunächst, welche Systeme und Themen bei Ihnen tatsächlich relevant sind, und schlagen anschließend einen passenden Umfang vor.
+
+Wenn das Thema für Sie grundsätzlich interessant ist, können wir uns gerne einmal 15 Minuten unverbindlich austauschen.
+
+{signature}
+""",
 }
 
 
