@@ -218,6 +218,18 @@ def import_leads(
                 + "</body></html>"
             )
             lead.draft_source = "manual_json"
+            imported_draft_evidence = next(
+                (
+                    evidence
+                    for evidence in reversed(lead.evidence)
+                    if evidence.source_url == source_url
+                    and evidence.kind in {"personalization", "manual_review"}
+                ),
+                None,
+            )
+            if imported_draft_evidence is not None:
+                lead.draft_evidence = [imported_draft_evidence]
+                lead.draft_evidence_urls = [source_url]
             lead.approved_draft_hash = ""
             lead.approved_at = ""
             lead.approved_by = ""
