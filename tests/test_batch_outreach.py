@@ -12,7 +12,6 @@ from leadagent.batch_outreach import (
     stopped,
 )
 from leadagent.mail import FROM_EMAIL, SMTPSettings, build_message, smtp_transport
-from leadagent.outreach import set_permission
 from leadagent.templates import SECTORS, render
 
 
