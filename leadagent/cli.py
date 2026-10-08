@@ -24,6 +24,13 @@ from .research import Researcher
 from .templates import SECTORS
 from .web import PublicWebClient
 
+DISCOVERY_SECTORS = (
+    "law_firm",
+    "medical_practice",
+    "tax_advisor",
+    "it_service_provider",
+)
+
 
 def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(
@@ -37,7 +44,7 @@ def parser() -> argparse.ArgumentParser:
     discovery = sub.add_parser(
         "discover", help="Discover, research, rank, draft and generate daily report"
     )
-    discovery.add_argument("--sector", choices=list(SECTORS))
+    discovery.add_argument("--sector", choices=DISCOVERY_SECTORS)
     discovery.add_argument("--location", help="City/region focus; for exact radii prefer --area")
     discovery.add_argument(
         "--area",
@@ -135,6 +142,19 @@ def parser() -> argparse.ArgumentParser:
             dest="max_count",
             type=int,
             help="Maximum number of messages in this preview/send batch",
+        )
+        command.add_argument(
+            "--review-input",
+            action="store_true",
+            help=(
+                "Explicitly treat factual --input rows as human-reviewed public business "
+                "contacts; requires a named reviewer and does not imply recipient consent"
+            ),
+        )
+        command.add_argument(
+            "--reviewed-by",
+            default="",
+            help="Named human reviewer for --review-input (send may use --actor instead)",
         )
         if name == "send":
             command.add_argument("--actor", required=True, help="Human confirming this batch")
