@@ -151,6 +151,7 @@ Supported manual-outreach sectors are:
 - `logistics`
 - `property_management`
 - `technical_trade`
+- `fitness_studio`
 
 Automatic discovery remains intentionally limited to the original four research sectors.
 The additional SME sectors are supported through factual/manual JSON outreach. The same
@@ -206,3 +207,25 @@ The command prints the final sendable subset and still requires the literal `JA`
 confirmation before SMTP starts. Previously contacted, suppressed, rejected, opted-out,
 customer or otherwise blocked identities remain excluded. A public business address is
 recorded as `PUBLIC_BUSINESS_OUTREACH`, not as recipient consent.
+
+
+## 8. Fitness-studio campaigns
+
+Fitness and health studios use the manual outreach sector `fitness_studio`. This includes
+classic gyms, EMS studios, CrossFit boxes and health-oriented fitness studios where a
+public business contact address has been reviewed. Pure outdoor facilities without an
+operator contact are not outreach leads.
+
+Example:
+
+```bash
+python3 -m leadagent outreach preview fitness_studio \
+  --input data/karlsruhe_fitnessstudios_20km_outreach.json \
+  --region "Karlsruhe + 20 km" \
+  --review-input \
+  --reviewed-by "Hasib Gharibyar"
+```
+
+The normal persistent SQLite deduplication and suppression rules still apply. Several
+locations belonging to the same operator may therefore intentionally collapse to one
+outreach identity, preventing duplicate cold outreach to the same company.
