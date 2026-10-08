@@ -17,6 +17,33 @@ from .models import Lead
 GEONAMES_DE_URL = "https://download.geonames.org/export/dump/DE.zip"
 GEONAMES_ATTRIBUTION = "GeoNames, CC BY 4.0, https://www.geonames.org/"
 
+MAJOR_GERMAN_CENTERS: dict[str, tuple[str, float, float]] = {
+    "berlin": ("Berlin", 52.5200, 13.4050),
+    "hamburg": ("Hamburg", 53.5511, 9.9937),
+    "munchen": ("München", 48.1351, 11.5820),
+    "muenchen": ("München", 48.1351, 11.5820),
+    "koln": ("Köln", 50.9375, 6.9603),
+    "koeln": ("Köln", 50.9375, 6.9603),
+    "frankfurt": ("Frankfurt am Main", 50.1109, 8.6821),
+    "frankfurt am main": ("Frankfurt am Main", 50.1109, 8.6821),
+    "stuttgart": ("Stuttgart", 48.7758, 9.1829),
+    "dusseldorf": ("Düsseldorf", 51.2277, 6.7735),
+    "duesseldorf": ("Düsseldorf", 51.2277, 6.7735),
+    "leipzig": ("Leipzig", 51.3397, 12.3731),
+    "dresden": ("Dresden", 51.0504, 13.7373),
+    "hannover": ("Hannover", 52.3759, 9.7320),
+    "bremen": ("Bremen", 53.0793, 8.8017),
+    "nurnberg": ("Nürnberg", 49.4521, 11.0767),
+    "nuernberg": ("Nürnberg", 49.4521, 11.0767),
+    "bonn": ("Bonn", 50.7374, 7.0982),
+    "mannheim": ("Mannheim", 49.4875, 8.4660),
+    "freiburg": ("Freiburg im Breisgau", 47.9990, 7.8421),
+    "freiburg im breisgau": ("Freiburg im Breisgau", 47.9990, 7.8421),
+    "kiel": ("Kiel", 54.3233, 10.1228),
+    "karlsruhe": ("Karlsruhe", 49.0069, 8.4037),
+    "heidelberg": ("Heidelberg", 49.3988, 8.6724),
+}
+
 
 def _key(value: str) -> str:
     folded = unicodedata.normalize("NFKD", value.casefold())
@@ -57,15 +84,20 @@ class GeoIndex:
         self.places = data["places"]
 
     def resolve(self, city: str) -> Place | None:
-        item = self.places.get(_key(city))
-        if not item:
-            return None
-        return Place(
-            item["name"],
-            float(item["latitude"]),
-            float(item["longitude"]),
-            int(item.get("population", 0)),
-        )
+        key = _key(city)
+        item = self.places.get(key)
+        if item:
+            return Place(
+                item["name"],
+                float(item["latitude"]),
+                float(item["longitude"]),
+                int(item.get("population", 0)),
+            )
+        fallback = MAJOR_GERMAN_CENTERS.get(key)
+        if fallback:
+            name, latitude, longitude = fallback
+            return Place(name, latitude, longitude, 0)
+        return None
 
 
 def update_geo_database(path: str, url: str = GEONAMES_DE_URL) -> int:
@@ -165,12 +197,19 @@ def apply_area_match(lead: Lead, areas: list[Area], index: GeoIndex) -> str:
     if not lead.city:
         lead.location_review_required = True
         return "REVIEW"
-    place = index.resolve(lead.city)
-    if place is None:
-        lead.location_review_required = True
-        return "REVIEW"
-    lead.latitude, lead.longitude = place.latitude, place.longitude
-    lead.location_resolution_source = GEONAMES_ATTRIBUTION
+    if lead.latitude is not None and lead.longitude is not None:
+        latitude, longitude = lead.latitude, lead.longitude
+        lead.location_resolution_source = (
+            lead.location_resolution_source or "OpenStreetMap discovery geometry"
+        )
+    else:
+        place = index.resolve(lead.city)
+        if place is None:
+            lead.location_review_required = True
+            return "REVIEW"
+        latitude, longitude = place.latitude, place.longitude
+        lead.latitude, lead.longitude = latitude, longitude
+        lead.location_resolution_source = GEONAMES_ATTRIBUTION
     lead.country = "Germany"
     lead.evidence = [
         e
@@ -179,7 +218,7 @@ def apply_area_match(lead: Lead, areas: list[Area], index: GeoIndex) -> str:
     ]
     distances = [
         (
-            haversine_km(place.latitude, place.longitude, area.latitude, area.longitude),
+            haversine_km(latitude, longitude, area.latitude, area.longitude),
             area,
         )
         for area in areas

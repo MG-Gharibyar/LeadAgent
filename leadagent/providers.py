@@ -24,6 +24,8 @@ class Candidate:
     source_url: str
     retrieved_at: str
     city: str = ""
+    latitude: float | None = None
+    longitude: float | None = None
     # Only fixture providers may directly supply evidence. Web providers research independently.
     fixture: dict[str, Any] | None = None
     aliases: list[tuple[str, str]] = field(default_factory=list)

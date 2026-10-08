@@ -240,6 +240,10 @@ class Researcher:
         if not name:
             raise ValueError("No public company name found")
         lead = Lead(name, root_page.url)
+        if candidate.latitude is not None and candidate.longitude is not None:
+            lead.latitude = candidate.latitude
+            lead.longitude = candidate.longitude
+            lead.location_resolution_source = "OpenStreetMap discovery geometry"
         lead.evidence.append(
             Evidence("company_name", name, name, root_page.url, root_page.retrieved_at)
         )

@@ -265,3 +265,32 @@ def test_weingarten_location_whitespace_is_normalized():
     _contact(lead, page, Document(page.text, page.url), "Karlsruhe")
     assert lead.city == "Weingarten (Baden)"
     assert lead.country == "Germany"
+
+
+def test_osm_candidate_preserves_directory_coordinates():
+    config = DiscoveryConfig(sector="law_firm", location="Karlsruhe")
+    client = MagicMock()
+    client.fetch.return_value = Page(
+        "https://overpass.private.coffee/api/interpreter",
+        json.dumps(
+            {
+                "elements": [
+                    {
+                        "type": "node",
+                        "id": 9,
+                        "lat": 48.80,
+                        "lon": 9.20,
+                        "tags": {
+                            "name": "Coordinate Kanzlei",
+                            "website": "https://coordinate.example",
+                            "addr:city": "Stuttgart",
+                        },
+                    }
+                ]
+            }
+        ),
+        utcnow(),
+    )
+    found = list(OpenStreetMapDirectory(config, client).discover(5))
+    assert found[0].latitude == 48.80
+    assert found[0].longitude == 9.20

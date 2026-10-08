@@ -96,3 +96,29 @@ def test_load_areas_refreshes_stale_index_once(tmp_path, monkeypatch):
     assert index.resolve("Stuttgart") is not None
     assert areas[0].city == "Stuttgart"
     assert areas[0].radius_km == 35
+
+
+def test_major_city_fallback_when_local_index_is_incomplete(tmp_path):
+    path = tmp_path / "geo.json"
+    path.write_text(json.dumps({"places": {}}))
+    index = GeoIndex(str(path))
+    stuttgart = index.resolve("Stuttgart")
+    assert stuttgart is not None
+    assert stuttgart.name == "Stuttgart"
+    areas = resolve_areas(["Stuttgart:35"], index)
+    assert areas[0].radius_km == 35
+
+
+def test_area_match_prefers_discovery_coordinates(tmp_path):
+    index = make_index(tmp_path)
+    lead = Lead(
+        "Synthetic",
+        "https://synthetic.example",
+        city="Unresolvable Suburb",
+        latitude=48.80,
+        longitude=9.20,
+        location_resolution_source="OpenStreetMap discovery geometry",
+    )
+    area = resolve_areas(["Stuttgart:35"], index)
+    assert apply_area_match(lead, area, index) == "MATCH"
+    assert lead.campaign_region == "Stuttgart"

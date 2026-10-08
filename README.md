@@ -365,3 +365,12 @@ If an exact `--area CITY:RADIUS_KM` center is missing from the local GeoNames ca
 the agent refreshes the Germany index once automatically and retries the lookup. The
 outreach send interval is configured at 2 seconds between messages, keeping delivery
 serial and auditable without the previous 60-second delay.
+
+
+### Radius fallback for major cities
+
+Exact-radius campaigns no longer depend solely on the local GeoNames cache for common
+German metro centers. Major campaign cities such as Stuttgart, Karlsruhe, Mannheim,
+Frankfurt, München, Köln and Berlin have built-in center coordinates. OpenStreetMap
+discovery also carries returned object/center coordinates into radius matching, so nearby
+firms can be checked without resolving every suburb name through GeoNames.

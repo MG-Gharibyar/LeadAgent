@@ -109,7 +109,10 @@ class OpenStreetMapDirectory:
         seen_domains: set[str] = set()
         for prefix, scope in self._scopes():
             selections = "".join(f"nwr{f}{scope};" for f in filters)
-            query = f"[out:json][timeout:20][maxsize:16777216];{prefix}({selections});out tags 500;"
+            query = (
+                f"[out:json][timeout:20][maxsize:16777216];"
+                f"{prefix}({selections});out center tags 500;"
+            )
             page = None
             last_error: OSError | None = None
             for endpoint in (
@@ -147,12 +150,21 @@ class OpenStreetMapDirectory:
                 if not domain or domain in seen_domains:
                     continue
                 seen_domains.add(domain)
+                center = item.get("center") if isinstance(item.get("center"), dict) else {}
+                latitude = item.get("lat", center.get("lat"))
+                longitude = item.get("lon", center.get("lon"))
+                if not isinstance(latitude, (int, float)) or not isinstance(
+                    longitude, (int, float)
+                ):
+                    latitude = longitude = None
                 yield Candidate(
                     tags["name"],
                     website,
                     f"https://www.openstreetmap.org/{item['type']}/{item['id']}",
                     page.retrieved_at,
                     tags.get("addr:city", ""),
+                    float(latitude) if latitude is not None else None,
+                    float(longitude) if longitude is not None else None,
                 )
                 count += 1
                 if count >= limit:
