@@ -53,20 +53,11 @@ def import_leads(
         explicit_website = str(row.get("website", "") or "").strip()
         website = explicit_website or f"https://{domain}"
         source_url = str(row.get("source_url", "") or explicit_website).strip()
-        manual_reviewed = bool(
-            row.get("manual_reviewed", campaign.get("manual_reviewed", False))
-        )
+        manual_reviewed = bool(row.get("manual_reviewed", campaign.get("manual_reviewed", False)))
         campaign_region = str(
-            row.get("campaign_region")
-            or campaign.get("region")
-            or default_region
-            or ""
+            row.get("campaign_region") or campaign.get("region") or default_region or ""
         ).strip()
-        reviewed_by = str(
-            row.get("reviewed_by")
-            or campaign.get("reviewed_by")
-            or "OWNER"
-        ).strip()
+        reviewed_by = str(row.get("reviewed_by") or campaign.get("reviewed_by") or "OWNER").strip()
         lead = Lead(
             company_name=row.get("company", row.get("company_name", "")),
             website=website,
@@ -159,9 +150,8 @@ def import_leads(
             lead.draft_evidence = [manual_evidence]
             lead.draft_evidence_urls = [source_url]
             lead.notes = (
-                (lead.notes + " | " if lead.notes else "")
-                + f"Manual JSON review by {reviewed_by}"
-            )
+                lead.notes + " | " if lead.notes else ""
+            ) + f"Manual JSON review by {reviewed_by}"
         lead, _ = db.upsert(lead, [(domain, source_url or str(path))])
         if row.get("contacted_manually") and not stopped(lead):
             contacted(db, lead.id or 0, config, "import", f"Manual contact recorded in {path}")
