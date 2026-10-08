@@ -229,4 +229,4 @@ def test_batch_region_and_max_filter(db, config, tmp_path, monkeypatch, capsys):
     assert "Region: Stuttgart" in output
     assert "Stuttgart One" in output
     assert "Karlsruhe One" not in output
-    assert "Pending outreach in this batch: 1" in output
+    assert "Pending outreach: 1" in output
