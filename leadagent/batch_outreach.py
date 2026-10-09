@@ -14,7 +14,7 @@ from .database import Database
 from .identity import normalize_domain
 from .mail import Mailer, blockers, contacted, email_valid
 from .models import Evidence, Lead, Permission, utcnow
-from .outreach import approve, draft_hash, initial_contacted, set_permission
+from .outreach import approve, draft_hash, initial_contacted, set_permission, suppress_contact
 from .sent_mail import append_sent, detect_sent, mailbox_password, repair_sent
 from .templates import SECTORS, render
 
@@ -290,6 +290,29 @@ def mark_contacted(db: Database, email: str, config: Config, actor: str, notes: 
         contacted(db, lead.id or 0, config, actor, notes)
 
 
+def suppress_email(db: Database, email: str, actor: str, reason: str) -> Lead:
+    email = email.strip().lower()
+    if not email_valid(email):
+        raise ValueError("Invalid email")
+    if not actor.strip() or not reason.strip():
+        raise ValueError("Suppression requires actor and reason")
+    domain = normalize_domain(email.rsplit("@", 1)[1])
+    matches = [lead for lead in db.all() if lead.public_email.lower() == email]
+    lead = matches[0] if len(matches) == 1 else None
+    if lead is None:
+        row = db.connection.execute(
+            "SELECT lead_id FROM domain_aliases WHERE domain=?", (domain,)
+        ).fetchone()
+        if row:
+            lead = db.get(int(row[0]))
+    if lead is None:
+        lead, _ = db.upsert(
+            Lead(company_name=domain, website=f"https://{domain}", public_email=email)
+        )
+    suppress_contact(db, lead.id or 0, actor, reason)
+    return db.get(lead.id or 0)
+
+
 def public_business_basis(lead: Lead) -> str:
     sources = [lead.contact_page, lead.website, *lead.source_urls]
     source = next((item for item in sources if item.startswith(("https://", "http://"))), "")
@@ -334,6 +357,10 @@ def dispatch(args: argparse.Namespace, db: Database, config: Config) -> int:
         return int(any(result["sent_copy_status"] == "FAILED" for result in results))
     if action == "mark-contacted":
         mark_contacted(db, args.email, config, args.actor, args.notes)
+        return 0
+    if action == "suppress-email":
+        lead = suppress_email(db, args.email, args.actor, args.reason)
+        print(f"DO_NOT_CONTACT: {lead.company_name} <{lead.public_email}>")
         return 0
     if action in {"history", "pending"}:
         for lead in db.all():
