@@ -260,7 +260,6 @@ def set_status(
             raise ValueError("Suppression is permanent")
         lead.outreach_status = status.value
         lead.rejected = status == Status.REJECTED
-        lead.do_not_contact = status == Status.DO_NOT_CONTACT
         lead.customer = status == Status.CUSTOMER
         lead.approved_draft_hash = ""
         db.save(lead)
