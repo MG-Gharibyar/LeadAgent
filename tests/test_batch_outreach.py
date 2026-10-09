@@ -10,6 +10,7 @@ from leadagent.batch_outreach import (
     mark_contacted,
     migrate_sent,
     stopped,
+    suppress_email,
 )
 from leadagent.mail import FROM_EMAIL, SMTPSettings, build_message, smtp_transport
 from leadagent.templates import SECTORS, render
@@ -562,3 +563,63 @@ def test_reviewed_reimport_qualifies_existing_unsent_identity(db, config, tmp_pa
     assert reviewed.final_score == config.minimum_score
     assert reviewed.draft_evidence
     assert reviewed.draft_source == "manual_json"
+
+
+def test_suppress_email_is_idempotent_and_survives_reimport(db, config, tmp_path):
+    path = fixture(
+        tmp_path / "lead.json",
+        [
+            {
+                "company": "Elektro Synthetic GmbH",
+                "email": "info@elektro-synthetic.example",
+                "website": "https://elektro-synthetic.example/",
+                "city": "Karlsruhe",
+                "sector": "electrical_engineering",
+                "source_url": "https://elektro-synthetic.example/kontakt",
+            }
+        ],
+    )
+    lead = import_leads(
+        db,
+        path,
+        "electrical_engineering",
+        config,
+        default_region="Karlsruhe",
+        manual_reviewed_override=True,
+        reviewed_by_override="OWNER",
+    )[0]
+    blocked = suppress_email(
+        db,
+        "info@elektro-synthetic.example",
+        "Hasib Gharibyar",
+        "Explicit objection to all further marketing contact",
+    )
+    assert blocked.id == lead.id
+    assert blocked.do_not_contact
+    assert blocked.email_permission_status == "PROHIBITED"
+
+    # Re-importing the same company must preserve the suppression instead of recreating
+    # it as a fresh prospect.
+    repeated = import_leads(
+        db,
+        path,
+        "electrical_engineering",
+        config,
+        default_region="Karlsruhe",
+        manual_reviewed_override=True,
+        reviewed_by_override="OWNER",
+    )[0]
+    assert repeated.id == lead.id
+    assert repeated.do_not_contact
+    assert repeated.email_permission_status == "PROHIBITED"
+    assert stopped(repeated)
+
+    # Repeating the suppression is safe and remains permanent.
+    again = suppress_email(
+        db,
+        "info@elektro-synthetic.example",
+        "Hasib Gharibyar",
+        "Suppression confirmation",
+    )
+    assert again.id == lead.id
+    assert again.do_not_contact
