@@ -63,3 +63,42 @@ def test_thread_matching_and_idempotent_ingest(db, qualified):
     event = db.connection.execute("SELECT * FROM inbox_events").fetchone()
     assert event["classification"] == "REQUESTED_INFORMATION"
     assert db.get(qualified.id).outreach_status == Status.RESPONDED.value
+
+
+def test_explicit_german_marketing_objection_is_opt_out():
+    body = """
+    Eine Einwilligung zum Erhalt derartiger Werbung ist uns nicht bekannt.
+    Unabhängig von der Grundlage der bisherigen Kontaktaufnahme widersprechen wir hiermit
+    ausdrücklich jeder weiteren werblichen Kontaktaufnahme. Eine etwa erteilte Einwilligung
+    widerrufen wir vorsorglich mit Wirkung für die Zukunft.
+    Wir fordern Sie auf, künftige Werbeansprachen per E-Mail, Telefon oder über andere
+    Kommunikationswege zu unterlassen und einen Werbesperrvermerk einzurichten.
+    """
+    classification, confidence, _, suggested = classify_text(
+        "Widerspruch gegen Werbeansprache",
+        body,
+        "info@example.de",
+    )
+    assert classification == "OPT_OUT"
+    assert confidence >= 0.99
+    assert suggested == "DO_NOT_CONTACT"
+
+
+def test_opt_out_ingest_sets_permanent_prohibited_state(db, qualified):
+    db.save(qualified)
+    msg = EmailMessage()
+    msg["From"] = qualified.public_email
+    msg["To"] = "kontakt@digitalskills-campus.de"
+    msg["Subject"] = "Widerspruch gegen Werbeansprache"
+    msg["Message-ID"] = "<optout@example>"
+    msg["Date"] = format_datetime(datetime.now(UTC))
+    msg.set_content(
+        "Wir widersprechen ausdrücklich jeder weiteren werblichen Kontaktaufnahme "
+        "und bitten um einen Werbesperrvermerk."
+    )
+    assert ingest_message(db, "77", msg.as_bytes())
+    lead = db.get(qualified.id)
+    assert lead.outreach_status == Status.DO_NOT_CONTACT.value
+    assert lead.do_not_contact
+    assert lead.email_permission_status == "PROHIBITED"
+    assert lead.next_contact_allowed_at == ""
