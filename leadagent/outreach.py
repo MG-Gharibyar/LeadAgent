@@ -220,12 +220,16 @@ def suppress_contact(
         lead.email_permission_status = Permission.PROHIBITED.value
         lead.email_permission_basis = reason.strip() or "Explicit no-marketing request"
         lead.email_permission_recorded_at = at
-        if lead.customer or lead.outreach_status == Status.CUSTOMER.value:
+        is_customer = lead.customer or lead.outreach_status == Status.CUSTOMER.value
+        if is_customer:
             lead.customer_opt_out = True
         else:
             lead.outreach_status = Status.DO_NOT_CONTACT.value
         db.save(lead)
-        action = "SUPPRESSION_REAFFIRMED" if already_suppressed else "DO_NOT_CONTACT"
+        if is_customer:
+            action = "CUSTOMER_OPT_OUT"
+        else:
+            action = "SUPPRESSION_REAFFIRMED" if already_suppressed else "DO_NOT_CONTACT"
         db.audit(lead_id, action, actor, reason)
 
 
