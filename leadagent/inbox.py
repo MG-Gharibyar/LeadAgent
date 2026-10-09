@@ -75,7 +75,12 @@ def classify_text(subject: str, body: str, sender: str) -> tuple[str, float, str
         ),
         text,
     ):
-        return "OPT_OUT", 0.995, "Recipient explicitly objects to further marketing", "DO_NOT_CONTACT"
+        return (
+            "OPT_OUT",
+            0.995,
+            "Recipient explicitly objects to further marketing",
+            "DO_NOT_CONTACT",
+        )
     if re.search(
         r"\b(kein interesse|nicht interessiert|kommt für uns nicht in frage|sehen wir keinen bedarf)\b",
         text,
