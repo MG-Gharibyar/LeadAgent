@@ -168,6 +168,13 @@ def parser() -> argparse.ArgumentParser:
     manual.add_argument("email")
     manual.add_argument("--actor", required=True)
     manual.add_argument("--notes", required=True)
+    suppress = actions.add_parser(
+        "suppress-email",
+        help="Permanently suppress a business email/domain after an opt-out",
+    )
+    suppress.add_argument("email")
+    suppress.add_argument("--actor", required=True)
+    suppress.add_argument("--reason", required=True)
     return root
 
 
