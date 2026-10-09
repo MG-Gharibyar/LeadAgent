@@ -13,7 +13,7 @@ from .config import Config
 from .database import Database
 from .identity import normalize_domain
 from .models import Status, utcnow
-from .outreach import STOP_STATUSES, set_status
+from .outreach import STOP_STATUSES, set_status, suppress_contact
 from .sent_mail import connect, disconnect, mailbox_password
 
 OWN_EMAIL = "kontakt@digitalskills-campus.de"
@@ -65,10 +65,17 @@ def classify_text(subject: str, body: str, sender: str) -> tuple[str, float, str
     ):
         return "OUT_OF_OFFICE", 0.95, "Automatic absence reply", ""
     if re.search(
-        r"\b(keine weiteren (?:e-?mails|nachrichten)|nicht mehr kontaktieren|aus dem verteiler|abbestellen|unsubscribe|widerspreche)\b",
+        (
+            r"\b(keine weiteren (?:e-?mails|nachrichten)|nicht mehr kontaktieren|"
+            r"aus dem verteiler|abbestellen|unsubscribe|widersprech\w*|"
+            r"werbesperrvermerk|werbeansprach\w*.{0,80}unterlass\w*|"
+            r"künftige werbeansprach\w*|kuenftige werbeansprach\w*|"
+            r"widerruf\w*.{0,120}(?:werbung|einwilligung)|"
+            r"keine.{0,80}werb(?:ung|liche).{0,80}kontaktaufnahme)\b"
+        ),
         text,
     ):
-        return "OPT_OUT", 0.99, "Recipient requests no further messages", "DO_NOT_CONTACT"
+        return "OPT_OUT", 0.995, "Recipient explicitly objects to further marketing", "DO_NOT_CONTACT"
     if re.search(
         r"\b(kein interesse|nicht interessiert|kommt für uns nicht in frage|sehen wir keinen bedarf)\b",
         text,
@@ -140,8 +147,7 @@ def _apply_safe_state(db: Database, lead_id: int, classification: str, detail: s
             db.audit(lead_id, "BOUNCE", "inbox", detail)
         return utcnow()
     if classification == "OPT_OUT":
-        if lead.outreach_status != Status.DO_NOT_CONTACT.value:
-            set_status(db, lead_id, Status.DO_NOT_CONTACT, "inbox", detail)
+        suppress_contact(db, lead_id, "inbox", detail)
         return utcnow()
     if classification == "NOT_INTERESTED":
         if not lead.suppressed and lead.outreach_status != Status.REJECTED.value:
