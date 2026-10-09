@@ -191,6 +191,44 @@ def set_permission(db: Database, lead_id: int, state: str, basis: str, actor: st
         db.audit(lead_id, "PERMISSION", actor, f"{state}: {basis}")
 
 
+def suppress_contact(
+    db: Database,
+    lead_id: int,
+    actor: str,
+    reason: str = "",
+) -> None:
+    """Persist an explicit no-marketing request as a permanent suppression.
+
+    Keep the minimum identity/suppression record so future imports cannot accidentally
+    recreate the company as a fresh prospect.
+    """
+    if not actor.strip():
+        raise ValueError("Suppression requires a named operator")
+    at = utcnow()
+    with db.transaction():
+        lead = db.get(lead_id)
+        already_suppressed = lead.do_not_contact or (
+            lead.email_permission_status == Permission.PROHIBITED.value
+        )
+        lead.do_not_contact = True
+        lead.next_contact_allowed_at = ""
+        lead.approved_draft_hash = ""
+        lead.approved_at = ""
+        lead.approved_by = ""
+        lead.approved_permission_status = ""
+        lead.approved_permission_basis = ""
+        lead.email_permission_status = Permission.PROHIBITED.value
+        lead.email_permission_basis = reason.strip() or "Explicit no-marketing request"
+        lead.email_permission_recorded_at = at
+        if lead.customer or lead.outreach_status == Status.CUSTOMER.value:
+            lead.customer_opt_out = True
+        else:
+            lead.outreach_status = Status.DO_NOT_CONTACT.value
+        db.save(lead)
+        action = "SUPPRESSION_REAFFIRMED" if already_suppressed else "DO_NOT_CONTACT"
+        db.audit(lead_id, action, actor, reason)
+
+
 def set_status(
     db: Database,
     lead_id: int,
@@ -209,17 +247,11 @@ def set_status(
         raise ValueError("Status change must use a lifecycle command")
     if not actor.strip():
         raise ValueError("Status changes require a named operator")
+    if status == Status.DO_NOT_CONTACT:
+        suppress_contact(db, lead_id, actor, reason)
+        return
     with db.transaction():
         lead = db.get(lead_id)
-        if (
-            lead.customer or lead.outreach_status == Status.CUSTOMER.value
-        ) and status == Status.DO_NOT_CONTACT:
-            lead.customer_opt_out = True
-            lead.do_not_contact = True
-            lead.approved_draft_hash = ""
-            db.save(lead)
-            db.audit(lead_id, "CUSTOMER_OPT_OUT", actor, reason)
-            return
         if lead.suppressed:
             raise ValueError("Suppression is permanent")
         lead.outreach_status = status.value
@@ -227,8 +259,6 @@ def set_status(
         lead.do_not_contact = status == Status.DO_NOT_CONTACT
         lead.customer = status == Status.CUSTOMER
         lead.approved_draft_hash = ""
-        if status == Status.DO_NOT_CONTACT:
-            lead.email_permission_status = Permission.PROHIBITED.value
         db.save(lead)
         if status == Status.CUSTOMER:
             from .customers import initialize
